@@ -1,0 +1,2235 @@
+/*
+   ESPBike - v1.0
+*/
+
+#include <TFT_eSPI.h>
+#include <Wire.h>
+#include <SPI.h>
+#include <XPT2046_Touchscreen.h>
+#include <EEPROM.h>
+#include <DHT.h>
+#include <SparkFun_u-blox_GNSS_Arduino_Library.h>
+#include <HardwareSerial.h>
+
+// ======= PINS =======
+#define TFT_CS   5
+#define TFT_DC   2
+#define TFT_RST  4
+#define TFT_MOSI 23
+#define TFT_SCLK 18
+
+#define MPU6050_ADDR 0x68
+#define I2C_SDA 21
+#define I2C_SCL 22
+
+#define GPS_RX_PIN 16
+#define GPS_TX_PIN 17
+
+#define XPT2046_IRQ  35
+#define XPT2046_MOSI 32
+#define XPT2046_MISO 34
+#define XPT2046_CLK  25
+#define XPT2046_CS   33
+
+#define BUZZER_PIN  26
+
+#define DHTPIN 13
+#define DHTTYPE DHT11
+
+// ======= EEPROM LAYOUT (wear-leveling aware) =======
+#define EEPROM_SIZE 512
+#define EEPROM_SECTOR_SIZE 64
+#define EEPROM_NUM_SECTORS 4
+
+#define DISTANCE_ADDR 0
+#define DAILY_ADDR 4
+#define MAX_SPEED_ADDR 8
+#define TRIP_TIME_ADDR 12
+#define TOTAL_TRIP_TIME_ADDR 16
+#define CALORIES_ADDR 20
+#define SECTOR_MAGIC 24
+#define SECTOR_COUNTER 28
+#define SECTOR_SIZE 32
+
+#define HOUR_OFFSET 5
+#define USER_WEIGHT 50.0 // Ваш вес
+
+// ======= COLORS =======
+#define BG_LIGHT        TFT_WHITE
+#define TEXT_LIGHT      TFT_BLACK
+#define BG_DARK         TFT_BLACK
+#define TEXT_DARK       TFT_WHITE
+#define ACCENT_LIGHT    TFT_RED
+#define ACCENT_DARK     TFT_CYAN
+#define OK_COLOR        TFT_GREEN
+#define WARN_COLOR      TFT_YELLOW
+#define ALERT_COLOR     TFT_RED
+#define DIM_COLOR       TFT_DARKGREY
+#define SAT_COLOR       TFT_BLUE
+#define MENU_COLOR      TFT_ORANGE
+#define SETTINGS_COLOR  TFT_CYAN
+#define RESTART_COLOR   TFT_MAGENTA
+#define MAROON_COLOR    0x7800
+#define PACER_COLOR     0x07E0
+
+uint16_t BG_COLOR;
+uint16_t TEXT_COLOR;
+uint16_t ACCENT_COLOR;
+
+// ======= OBJECTS =======
+TFT_eSPI tft = TFT_eSPI();
+DHT dht(DHTPIN, DHTTYPE);
+SFE_UBLOX_GNSS gps;
+HardwareSerial gpsSerial(2);
+
+SPIClass touchscreenSPI = SPIClass(VSPI);
+XPT2046_Touchscreen touchscreen(XPT2046_CS, XPT2046_IRQ);
+
+// ======= CONSTANTS =======
+const int SCR_W = 240;
+const int SCR_H = 320;
+const int CX = SCR_W / 2;
+
+// ======= BUTTONS (BOTTOM) =======
+#define BTN_W 58
+#define BTN_H 16
+#define BTN_Y 300
+#define BTN1_X 2
+#define BTN2_X 62
+#define BTN3_X 122
+#define BTN4_X 182
+
+// ======= VARIABLES =======
+int currentSpeed = 0;
+float lastValidSpeed = 0.0;
+float totalDistance = 0.0;
+float dailyDistance = 0.0;
+float tripDistance = 0.0;
+int satellites = 0;
+
+// GPS coordinate-based distance calculation
+float lastLat = 0.0, lastLon = 0.0;
+bool firstFix = true;
+
+float tripMaxSpeed = 0.0;
+float tripAvgSpeed = 0.0;
+unsigned long tripElapsedSec = 0;
+unsigned long totalTripElapsedSec = 0;
+bool tripActive = false;
+unsigned long tripPauseTimer = 0;
+const unsigned long TRIP_PAUSE_DELAY = 3000;
+
+float calories = 0.0;
+float loadLevel = 0.0;
+float loadAccumulator = 0.0;
+float roadSlope = 0.0;
+
+int currentHour = 0, currentMinute = 0, currentSecond = 0;
+String timeStr = "TIME ?";
+bool timeSet = false;
+unsigned long lastTimeUpdate = 0;
+
+float accelX = 0.0, accelY = 0.0, accelZ = 0.0;
+float gyroX = 0.0, gyroY = 0.0, gyroZ = 0.0;
+
+int fallCounter = 0;
+bool fallDetected = false;
+unsigned long fallAlertTime = 0;
+const unsigned long FALL_ALERT_DURATION = 30000;
+unsigned long lastSosTime = 0;
+const unsigned long SOS_INTERVAL = 5000;
+
+unsigned long lastSpeedAlert = 0;
+const unsigned long SPEED_ALERT_INTERVAL = 5000;
+bool speedAlertActive = false;
+const float SPEED_LIMIT = 25.0;
+
+// Vibration detection
+float vibrationLevel = 0.0;
+bool vibrationWarningActive = false;
+unsigned long vibrationWarningTime = 0;
+const unsigned long VIBRATION_WARNING_DURATION = 3000;
+const float VIBRATION_THRESHOLD = 0.8;
+
+unsigned long lastDrawTime = 0;
+const int DRAW_INTERVAL = 500;
+unsigned long lastSlopeDrawTime = 0;
+const int SLOPE_DRAW_INTERVAL = 100;
+unsigned long lastGPSTime = 0;
+const int GPS_INTERVAL = 100;
+unsigned long lastMPUTime = 0;
+const int MPU_INTERVAL = 50;
+unsigned long lastSecTimer = 0;
+
+bool wasFix = false;
+
+bool touchPressed = false;
+unsigned long touchStartTime = 0;
+bool inSettingsMenu = false;
+bool inStatsMenu = false;
+bool inInitScreen = false;
+unsigned long settingsEnterTime = 0;
+bool settingsClosingSoundPlayed = false;
+int currentPage = 0;
+
+float temperature = 0.0;
+float humidity = 0.0;
+bool dhtDataValid = false;
+unsigned long lastDHTRead = 0;
+const unsigned long DHT_UPDATE_INTERVAL = 60000;
+
+unsigned long bootTime = 0;
+bool dailyResetDone = false;
+
+// Sleep mode
+bool sleepModeActive = false;
+unsigned long lastActivityTime = 0;
+const unsigned long SLEEP_TIMEOUT = 600000;
+
+// ======= LOAD / ALERTS =======
+bool wasLoadHigh = false;
+bool showLoadReduced = false;
+unsigned long loadReducedTimer = 0;
+
+// ======= DRAW CACHE =======
+int    lastD_speed = -1;
+int    lastD_sat = -1;
+String lastD_time = "";
+float  lastD_total = -1;
+float  lastD_daily = -1;
+float  lastD_tripDist = -1;
+float  lastD_temp = -100;
+float  lastD_hum = -100;
+float  lastD_avg = -1;
+float  lastD_max = -1;
+unsigned long lastD_elapsed = 999999;
+unsigned long lastD_totalElapsed = 999999;
+bool   lastD_fall = false;
+bool   lastD_spdAlert = false;
+bool   lastD_overload = false;
+bool   lastD_loadReduced = false;
+bool   lastD_vibWarn = false;
+bool   lastD_slopeAlert = false;
+char   lastD_slopeArrow = 0;
+float  lastD_slopeVal = -999;
+bool   buttonsDrawn = false;
+bool   needFullRedraw = true;
+bool   isDarkTheme = false;
+
+// ======= SOUNDS =======
+bool soundEnabled = true;
+bool overloadAlertActive = false;
+unsigned long overloadBeepTimer = 0;
+bool beepState = false;
+int overloadPhase = 0; // 0=initial 3s, 1=waiting 3min, 2=continuous
+
+// ======= MODULE STATUS =======
+struct ModuleStatus {
+  bool tftOK;
+  bool eepromOK;
+  bool touchOK;
+  bool mpuOK;
+  bool gpsOK;
+  bool buzzerOK;
+  bool dhtOK;
+};
+ModuleStatus modules = {false, false, false, false, false, false, false};
+
+// ======= EEPROM WEAR LEVELING =======
+int currentSector = 0;
+uint32_t eepromWriteCount = 0;
+int forwardAxis = 0;
+int upAxis = 2;
+
+// ======= SLOPE CALIBRATION =======
+float calibForward = 0.0;
+float calibUp = 0.0;
+bool slopeCalibrated = false;
+
+// ======= SLOPE RAPID CHANGE DETECTION =======
+float lastSlopeCheck = 0.0;
+unsigned long lastSlopeCheckTime = 0;
+const unsigned long SLOPE_CHECK_INTERVAL = 100;
+bool slopeAlertActive = false;
+unsigned long slopeAlertTime = 0;
+const unsigned long SLOPE_ALERT_DURATION = 5000;
+
+// ======= PACER =======
+bool pacerActive = false;
+float pacerTargetSpeed = 0.0;
+float pacerTotalDist = 0.0;
+unsigned long pacerTotalTimeSec = 0;
+unsigned long pacerStartTime = 0;
+bool pacerWarning = false;
+unsigned long pacerWarnTimer = 0;
+String pacerETA = "";
+bool inPacerInput = false;
+int pacerInputStep = 0;
+String pacerInputBuffer = "";
+unsigned long pacerInputValue = 0;
+bool pacerArrived = false;
+unsigned long pacerArrivalTime = 0;
+const unsigned long PACER_ARRIVAL_DISPLAY_DURATION = 10000;
+
+void findBestSector() {
+  uint32_t bestCounter = 0xFFFFFFFF;
+  currentSector = 0;
+  for (int i = 0; i < EEPROM_NUM_SECTORS; i++) {
+    int addr = i * EEPROM_SECTOR_SIZE;
+    uint32_t magic, counter;
+    EEPROM.get(addr + SECTOR_MAGIC, magic);
+    EEPROM.get(addr + SECTOR_COUNTER, counter);
+    if (magic == 0xBEEF && counter < bestCounter) {
+      bestCounter = counter;
+      currentSector = i;
+    }
+  }
+  if (bestCounter == 0xFFFFFFFF) {
+    currentSector = 0;
+    eepromWriteCount = 0;
+    int base = 0;
+    EEPROM.put(base + SECTOR_MAGIC, (uint32_t)0xBEEF);
+    EEPROM.put(base + SECTOR_COUNTER, (uint32_t)0);
+    EEPROM.commit();
+  } else {
+    eepromWriteCount = bestCounter;
+  }
+}
+
+void rotateSector() {
+  int nextSector = (currentSector + 1) % EEPROM_NUM_SECTORS;
+  int src = currentSector * EEPROM_SECTOR_SIZE;
+  int dst = nextSector * EEPROM_SECTOR_SIZE;
+  for (int i = 0; i < SECTOR_SIZE; i++) {
+    EEPROM.write(dst + i, EEPROM.read(src + i));
+  }
+  eepromWriteCount++;
+  EEPROM.put(dst + SECTOR_COUNTER, eepromWriteCount);
+  uint32_t verifyCounter;
+  EEPROM.get(dst + SECTOR_COUNTER, verifyCounter);
+  if (verifyCounter == eepromWriteCount) {
+    currentSector = nextSector;
+  }
+  EEPROM.commit();
+}
+
+void saveStats() {
+  static int writeCounter = 0;
+  writeCounter++;
+  if (writeCounter >= 10) {
+    writeCounter = 0;
+    rotateSector();
+  }
+  int base = currentSector * EEPROM_SECTOR_SIZE;
+  EEPROM.put(base + DAILY_ADDR, dailyDistance);
+  EEPROM.put(base + MAX_SPEED_ADDR, tripMaxSpeed);
+  EEPROM.put(base + TRIP_TIME_ADDR, tripElapsedSec);
+  EEPROM.put(base + TOTAL_TRIP_TIME_ADDR, totalTripElapsedSec);
+  EEPROM.put(base + CALORIES_ADDR, calories);
+  EEPROM.commit();
+}
+
+void loadStats() {
+  int base = currentSector * EEPROM_SECTOR_SIZE;
+  EEPROM.get(base + DAILY_ADDR, dailyDistance);
+  EEPROM.get(base + MAX_SPEED_ADDR, tripMaxSpeed);
+  EEPROM.get(base + TRIP_TIME_ADDR, tripElapsedSec);
+  EEPROM.get(base + TOTAL_TRIP_TIME_ADDR, totalTripElapsedSec);
+  EEPROM.get(base + CALORIES_ADDR, calories);
+  if (dailyDistance > 10000) dailyDistance = 0;
+  if (tripMaxSpeed > 200) tripMaxSpeed = 0;
+  if (tripElapsedSec > 86400) tripElapsedSec = 0;
+  if (totalTripElapsedSec > 86400) totalTripElapsedSec = 0;
+  if (calories > 10000) calories = 0;
+}
+
+void resetStats() {
+  dailyDistance = 0;
+  tripDistance = 0;
+  tripMaxSpeed = 0;
+  tripElapsedSec = 0;
+  totalTripElapsedSec = 0;
+  calories = 0;
+  tripAvgSpeed = 0;
+  loadAccumulator = 0;
+  loadLevel = 0;
+  saveStats();
+}
+
+float getEEPROMHealth() {
+  const uint32_t MAX_WRITES = 100000;
+  if (eepromWriteCount > MAX_WRITES) return 0.0;
+  return 100.0 * (1.0 - (float)eepromWriteCount / MAX_WRITES);
+}
+
+void saveDistance() {
+  uint32_t val = (uint32_t)(totalDistance * 1000);
+  int base = currentSector * EEPROM_SECTOR_SIZE;
+  EEPROM.put(base + DISTANCE_ADDR, val);
+  EEPROM.commit();
+}
+
+void loadDistance() {
+  int base = currentSector * EEPROM_SECTOR_SIZE;
+  uint32_t val;
+  EEPROM.get(base + DISTANCE_ADDR, val);
+  totalDistance = (val > 0) ? val / 1000.0 : 0.0;
+}
+
+// ======= SOUND =======
+void initBuzzer() {
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+  modules.buzzerOK = true;
+}
+
+void beep(int frequency, int duration) {
+  if (!soundEnabled) return;
+  tone(BUZZER_PIN, frequency, duration);
+  delay(duration + 10);
+  noTone(BUZZER_PIN);
+}
+
+void sosSignal() {
+  if (!soundEnabled) return;
+  if (millis() - lastSosTime < SOS_INTERVAL) return;
+  lastSosTime = millis();
+  for (int i = 0; i < 3; i++) { tone(BUZZER_PIN, 1000, 150); delay(200); noTone(BUZZER_PIN); }
+  delay(300);
+  for (int i = 0; i < 3; i++) { tone(BUZZER_PIN, 1000, 500); delay(700); noTone(BUZZER_PIN); }
+  delay(300);
+  for (int i = 0; i < 3; i++) { tone(BUZZER_PIN, 1000, 150); delay(200); noTone(BUZZER_PIN); }
+}
+
+void speedAlertSound() {
+  if (!soundEnabled) return;
+  tone(BUZZER_PIN, 2000, 100); delay(150);
+  tone(BUZZER_PIN, 2000, 100); delay(150);
+  noTone(BUZZER_PIN);
+}
+
+void vibrationWarningSound() {
+  if (!soundEnabled) return;
+  tone(BUZZER_PIN, 1500, 200); delay(250);
+  tone(BUZZER_PIN, 1200, 200); delay(250);
+  noTone(BUZZER_PIN);
+}
+
+void gpsFixSound() {
+  if (!soundEnabled) return;
+  tone(BUZZER_PIN, 1200, 100); delay(120);
+  tone(BUZZER_PIN, 1500, 100); delay(120);
+  noTone(BUZZER_PIN);
+}
+
+void startupMelody() {
+  if (!soundEnabled) return;
+  int notes[] = {523, 587, 659, 784};
+  int dur[] = {200, 200, 200, 300};
+  for (int i = 0; i < 4; i++) {
+    tone(BUZZER_PIN, notes[i], dur[i]);
+    delay(dur[i] + 50);
+    noTone(BUZZER_PIN);
+  }
+}
+
+void menuSound() {
+  if (!soundEnabled) return;
+  tone(BUZZER_PIN, 600, 100); delay(120);
+  tone(BUZZER_PIN, 800, 100); delay(120);
+  noTone(BUZZER_PIN);
+}
+
+void settingsCloseSound() {
+  if (!soundEnabled) return;
+  tone(BUZZER_PIN, 400, 150); delay(200);
+  tone(BUZZER_PIN, 600, 150); delay(200);
+  noTone(BUZZER_PIN);
+}
+
+void restartSound() {
+  if (!soundEnabled) return;
+  tone(BUZZER_PIN, 800, 100); delay(150);
+  tone(BUZZER_PIN, 1000, 100); delay(150);
+  noTone(BUZZER_PIN);
+}
+
+void overloadSound() {
+  if (!soundEnabled) return;
+  if (beepState) {
+    tone(BUZZER_PIN, 2500, 2900);
+  } else {
+    noTone(BUZZER_PIN);
+  }
+}
+
+void whooshSound() {
+  if (!soundEnabled) return;
+  tone(BUZZER_PIN, 800, 150); delay(160);
+  tone(BUZZER_PIN, 1200, 150); delay(160);
+  tone(BUZZER_PIN, 1600, 200); delay(210);
+  noTone(BUZZER_PIN);
+}
+
+void pacerWarningSound() {
+  if (!soundEnabled) return;
+  for (int i = 0; i < 3; i++) {
+    tone(BUZZER_PIN, 2200, 150);
+    delay(200);
+    noTone(BUZZER_PIN);
+  }
+}
+
+void pacerSuccessMelody() {
+  if (!soundEnabled) return;
+  int notes[] = {523, 659, 784, 1047, 784, 1047};
+  int dur[] = {150, 150, 150, 300, 150, 400};
+  for (int i = 0; i < 6; i++) {
+    tone(BUZZER_PIN, notes[i], dur[i]);
+    delay(dur[i] + 50);
+    noTone(BUZZER_PIN);
+  }
+}
+
+// ======= MPU6050 =======
+bool initMPU6050() {
+  Wire.begin(I2C_SDA, I2C_SCL);
+  Wire.beginTransmission(MPU6050_ADDR);
+  if (Wire.endTransmission() != 0) return false;
+  Wire.beginTransmission(MPU6050_ADDR);
+  Wire.write(0x6B); Wire.write(0x00);
+  Wire.endTransmission();
+  Wire.beginTransmission(MPU6050_ADDR);
+  Wire.write(0x1C); Wire.write(0x10);
+  Wire.endTransmission();
+  Wire.beginTransmission(MPU6050_ADDR);
+  Wire.write(0x1B); Wire.write(0x10);
+  Wire.endTransmission();
+  delay(100);
+  return true;
+}
+
+void readMPU6050() {
+  Wire.beginTransmission(MPU6050_ADDR);
+  Wire.write(0x3B);
+  Wire.endTransmission(false);
+  Wire.requestFrom(MPU6050_ADDR, 14, true);
+  int16_t rawX = Wire.read() << 8 | Wire.read();
+  int16_t rawY = Wire.read() << 8 | Wire.read();
+  int16_t rawZ = Wire.read() << 8 | Wire.read();
+  int16_t rawTemp = Wire.read() << 8 | Wire.read();
+  int16_t rawGyroX = Wire.read() << 8 | Wire.read();
+  int16_t rawGyroY = Wire.read() << 8 | Wire.read();
+  int16_t rawGyroZ = Wire.read() << 8 | Wire.read();
+  accelX = rawX / 4096.0;
+  accelY = rawY / 4096.0;
+  accelZ = rawZ / 4096.0;
+  gyroX = rawGyroX / 32.8;
+  gyroY = rawGyroY / 32.8;
+  gyroZ = rawGyroZ / 32.8;
+}
+
+void detectAxes() {
+  float ax = 0, ay = 0, az = 0;
+  for (int i = 0; i < 10; i++) {
+    readMPU6050();
+    ax += abs(accelX);
+    ay += abs(accelY);
+    az += abs(accelZ);
+    delay(10);
+  }
+  ax /= 10; ay /= 10; az /= 10;
+  if (az > ax && az > ay) {
+    upAxis = 2;
+    forwardAxis = (ax > ay) ? 0 : 1;
+  } else if (ay > ax && ay > az) {
+    upAxis = 1;
+    forwardAxis = (ax > az) ? 0 : 2;
+  } else {
+    upAxis = 0;
+    forwardAxis = (ay > az) ? 1 : 2;
+  }
+}
+
+void calibrateSlope() {
+  if (slopeCalibrated) return;
+  float samplesF[50];
+  float samplesU[50];
+  for (int i = 0; i < 50; i++) {
+    readMPU6050();
+    float f, u;
+    switch (forwardAxis) {
+      case 0: f = accelX; break;
+      case 1: f = accelY; break;
+      default: f = accelZ; break;
+    }
+    switch (upAxis) {
+      case 0: u = accelX; break;
+      case 1: u = accelY; break;
+      default: u = accelZ; break;
+    }
+    samplesF[i] = f;
+    samplesU[i] = u;
+    delay(10);
+  }
+  // Sort and take median (more robust against outliers)
+  for (int i = 0; i < 49; i++) {
+    for (int j = i + 1; j < 50; j++) {
+      if (samplesF[i] > samplesF[j]) { float t = samplesF[i]; samplesF[i] = samplesF[j]; samplesF[j] = t; }
+      if (samplesU[i] > samplesU[j]) { float t = samplesU[i]; samplesU[i] = samplesU[j]; samplesU[j] = t; }
+    }
+  }
+  calibForward = samplesF[25]; // median
+  calibUp = samplesU[25];      // median
+  slopeCalibrated = true;
+}
+
+float getRoadSlope() {
+  float forward, up;
+  switch (forwardAxis) {
+    case 0: forward = accelX - calibForward; break;
+    case 1: forward = accelY - calibForward; break;
+    default: forward = accelZ - calibForward; break;
+  }
+  switch (upAxis) {
+    case 0: up = accelX - calibUp; break;
+    case 1: up = accelY - calibUp; break;
+    default: up = accelZ - calibUp; break;
+  }
+  float g = sqrt(forward*forward + up*up);
+  if (g < 0.01) g = 0.01;
+  float pitchRad = atan2(-forward, up);
+  float percent = tan(pitchRad) * 100.0;
+  return percent;
+}
+
+void checkSlopeRapidChange() {
+  if (millis() - lastSlopeCheckTime < SLOPE_CHECK_INTERVAL) return;
+  lastSlopeCheckTime = millis();
+
+  // ANY vibration alert when speed > 10 km/h
+  if (vibrationLevel > VIBRATION_THRESHOLD && currentSpeed > 10) {
+    if (!slopeAlertActive) {
+      slopeAlertActive = true;
+      slopeAlertTime = millis();
+      if (soundEnabled) {
+        tone(BUZZER_PIN, 1800, 200); delay(250);
+        tone(BUZZER_PIN, 1800, 200); delay(250);
+        tone(BUZZER_PIN, 1800, 200); delay(250);
+        noTone(BUZZER_PIN);
+      }
+    }
+  }
+
+  if (slopeAlertActive && millis() - slopeAlertTime > SLOPE_ALERT_DURATION) {
+    slopeAlertActive = false;
+  }
+}
+
+// ======= VIBRATION =======
+void updateVibration() {
+  static float prevAccel = 0;
+  float currentAccel = sqrt(accelX*accelX + accelY*accelY + accelZ*accelZ);
+  float delta = abs(currentAccel - prevAccel);
+  prevAccel = currentAccel;
+  vibrationLevel = vibrationLevel * 0.8 + delta * 0.2;
+  if (vibrationLevel > VIBRATION_THRESHOLD && currentSpeed > 5) {
+    if (!vibrationWarningActive) {
+      vibrationWarningActive = true;
+      vibrationWarningTime = millis();
+      vibrationWarningSound();
+    }
+  }
+  if (vibrationWarningActive && millis() - vibrationWarningTime > VIBRATION_WARNING_DURATION) {
+    vibrationWarningActive = false;
+  }
+}
+
+// ======= DHT11 =======
+void readDHT11() {
+  float t = dht.readTemperature();
+  float h = dht.readHumidity();
+  if (!isnan(t) && !isnan(h)) {
+    temperature = t;
+    humidity = h;
+    dhtDataValid = true;
+  } else {
+    dhtDataValid = false;
+  }
+}
+
+void updateDHT() {
+  if (millis() - lastDHTRead > DHT_UPDATE_INTERVAL) {
+    readDHT11();
+    lastDHTRead = millis();
+  }
+}
+
+void forceDHTUpdate() {
+  readDHT11();
+  lastDHTRead = millis();
+}
+
+// ======= FALL =======
+bool detectFall() {
+  static float fx = 0, fy = 0, fz = 0;
+  fx = fx * 0.7 + accelX * 0.3;
+  fy = fy * 0.7 + accelY * 0.3;
+  fz = fz * 0.7 + accelZ * 0.3;
+  if (abs(fx) > 1.5 || abs(fy) > 1.5 || abs(fz) > 1.5) {
+    fallCounter++;
+    if (fallCounter > 3) { fallCounter = 0; return true; }
+  } else {
+    fallCounter = 0;
+  }
+  return false;
+}
+
+// ======= AUTO THEME =======
+void updateTheme() {
+  static bool themeLocked = false;
+  static bool lockedDark = false;
+  bool hasFix = gps.getGnssFixOk();
+  bool shouldBeDark;
+
+  if (!timeSet) {
+    shouldBeDark = true;
+    themeLocked = false;
+  } else if (!hasFix) {
+    if (!themeLocked) {
+      lockedDark = isDarkTheme;
+      themeLocked = true;
+    }
+    shouldBeDark = lockedDark;
+  } else {
+    themeLocked = false;
+    shouldBeDark = (currentHour >= 6 && currentHour < 21);
+  }
+
+  if (shouldBeDark != isDarkTheme) {
+    isDarkTheme = shouldBeDark;
+    if (shouldBeDark) {
+      BG_COLOR = BG_DARK;
+      TEXT_COLOR = TEXT_DARK;
+      ACCENT_COLOR = ACCENT_DARK;
+    } else {
+      BG_COLOR = BG_LIGHT;
+      TEXT_COLOR = TEXT_LIGHT;
+      ACCENT_COLOR = ACCENT_LIGHT;
+    }
+    needFullRedraw = true;
+  }
+}
+
+// ======= TIME =======
+void updateTime() {
+  if (gps.getTimeValid() && gps.getGnssFixOk()) {
+    int utcHour = gps.getHour();
+    int utcMinute = gps.getMinute();
+    int utcSecond = gps.getSecond();
+    currentHour = (utcHour + HOUR_OFFSET) % 24;
+    currentMinute = utcMinute;
+    currentSecond = utcSecond;
+    timeSet = true;
+    lastTimeUpdate = millis();
+    char buf[6];
+    sprintf(buf, "%02d:%02d", currentHour, currentMinute);
+    timeStr = String(buf);
+  } else if (timeSet) {
+    unsigned long elapsed = (millis() - lastTimeUpdate) / 1000;
+    unsigned long totalSec = currentHour * 3600UL + currentMinute * 60 + currentSecond + elapsed;
+    currentHour = (totalSec / 3600) % 24;
+    currentMinute = (totalSec / 60) % 60;
+    currentSecond = totalSec % 60;
+    char buf[6];
+    sprintf(buf, "%02d:%02d", currentHour, currentMinute);
+    timeStr = String(buf);
+  } else {
+    timeStr = "TIME ?";
+  }
+  updateTheme();
+}
+
+// ======= DAILY RESET =======
+void checkDailyReset() {
+  if (!dailyResetDone && millis() - bootTime > 60000) {
+    dailyDistance = 0;
+    tripDistance = 0;
+    tripElapsedSec = 0;
+    tripMaxSpeed = 0;
+    tripAvgSpeed = 0;
+    calories = 0;
+    loadLevel = 0;
+    loadAccumulator = 0;
+    saveStats();
+    dailyResetDone = true;
+  }
+}
+
+// ======= LOAD COLOR =======
+uint16_t getLoadColor(float l) {
+  if (l < 40) return OK_COLOR;
+  if (l < 70) return WARN_COLOR;
+  if (l < 90) return ALERT_COLOR;
+  return MAROON_COLOR;
+}
+
+// ======= UPDATE LOAD =======
+void updateLoad() {
+  roadSlope = getRoadSlope();
+  float speedFactor = currentSpeed / 30.0;
+  float distFactor = tripDistance / 10.0;
+  if (distFactor > 1.0) distFactor = 1.0;
+  float slopeFactor = 1.0 + (roadSlope / 20.0) * 0.5;
+  if (slopeFactor < 0.5) slopeFactor = 0.5;
+  if (slopeFactor > 1.5) slopeFactor = 1.5;
+  float baseLoad = (speedFactor * 0.6 + distFactor * 0.4) * 100.0 * slopeFactor;
+  if (currentSpeed > 0 && tripActive) {
+    loadAccumulator += (baseLoad / 60.0);
+  }
+  if (currentSpeed <= 12 && currentSpeed > 0) {
+    loadAccumulator -= 0.4;
+  }
+  if (currentSpeed == 0) {
+    loadAccumulator -= 1.0;
+  }
+  if (loadAccumulator < 0) loadAccumulator = 0;
+  if (loadAccumulator > 100) loadAccumulator = 100;
+  loadLevel = loadAccumulator;
+}
+
+// ======= PND =======
+char getGear() {
+  if (satellites == 0) return 'N';
+  if (currentSpeed < 1) return 'P';
+  return 'D';
+}
+
+// ======= UPDATE DATA =======
+void updateData() {
+  updateTime();
+  updateDHT();
+
+  bool hasFix = gps.getGnssFixOk();
+  if (hasFix) {
+    satellites = gps.getSIV();
+    float speedMPS = gps.getGroundSpeed() / 1000.0;
+    float speedKmph = speedMPS * 3.6;
+
+    if (speedKmph < 1.5) {
+      currentSpeed = 0;
+    } else {
+      currentSpeed = (int)(speedKmph + 0.5);
+      lastValidSpeed = currentSpeed;
+    }
+    if (currentSpeed > 60) currentSpeed = 0;
+
+    if (currentSpeed > 0) {
+      if (!tripActive) tripActive = true;
+      if (currentSpeed > tripMaxSpeed) tripMaxSpeed = currentSpeed;
+      tripPauseTimer = millis();
+    } else {
+      if (tripActive && (millis() - tripPauseTimer > TRIP_PAUSE_DELAY)) {
+        tripActive = false;
+      }
+    }
+    if (currentSpeed > 0) {
+      float met = 4.0 + (currentSpeed / 30.0) * 4.0;
+      float durationHours = (float)tripElapsedSec / 3600.0;
+      calories = met * USER_WEIGHT * durationHours;
+    }
+    if (!wasFix) { gpsFixSound(); wasFix = true; }
+
+    // GPS coordinate-based distance calculation (from v7.1)
+    float curLat = gps.getLatitude() / 10000000.0;
+    float curLon = gps.getLongitude() / 10000000.0;
+
+    if (!firstFix) {
+      float dLat = curLat - lastLat;
+      float dLon = curLon - lastLon;
+      if (satellites > 0 && currentSpeed > 0) {
+        const float R = 6371.0;
+        float radDLat = radians(dLat);
+        float radDLon = radians(dLon);
+        float a = sin(radDLat / 2) * sin(radDLat / 2) +
+                  cos(radians(lastLat)) * cos(radians(curLat)) *
+                  sin(radDLon / 2) * sin(radDLon / 2);
+        float c = 2 * atan2(sqrt(a), sqrt(1 - a));
+        float dist = R * c;
+        if (dist < 0.5 && dist > 0.0001) {
+          totalDistance += dist;
+          dailyDistance += dist;
+          tripDistance += dist;
+          saveDistance();
+          saveStats();
+        }
+      }
+    }
+    lastLat = curLat;
+    lastLon = curLon;
+    firstFix = false;
+
+  } else {
+    currentSpeed = 0;
+    satellites = 0;
+    wasFix = false;
+  }
+
+  updateLoad();
+  updateVibration();
+
+  if (currentSpeed > (int)SPEED_LIMIT) {
+    if (millis() - lastSpeedAlert > SPEED_ALERT_INTERVAL) {
+      speedAlertSound();
+      lastSpeedAlert = millis();
+      speedAlertActive = true;
+    }
+  } else {
+    speedAlertActive = false;
+  }
+
+  if (detectFall() && !fallDetected) {
+    fallDetected = true;
+    fallAlertTime = millis();
+    sosSignal();
+  }
+  if (fallDetected && (millis() - fallAlertTime > FALL_ALERT_DURATION)) {
+    fallDetected = false;
+  }
+
+  // Overload alert: 100% load → 3s beep, then 3min grace, then continuous until < 90%
+  if (loadLevel >= 100 && currentSpeed > 0) {
+    if (!overloadAlertActive) {
+      overloadAlertActive = true;
+      overloadPhase = 0;
+      overloadBeepTimer = millis();
+      if (soundEnabled) tone(BUZZER_PIN, 2500, 3000); // 3-second initial beep
+    }
+
+    if (overloadPhase == 0) {
+      if (millis() - overloadBeepTimer >= 3000) {
+        overloadPhase = 1;
+        overloadBeepTimer = millis();
+        noTone(BUZZER_PIN);
+      }
+    } else if (overloadPhase == 1) {
+      // 3-minute grace period
+      if (millis() - overloadBeepTimer >= 180000) {
+        if (loadLevel >= 90) {
+          overloadPhase = 2;
+          overloadBeepTimer = millis();
+        } else {
+          overloadAlertActive = false;
+          overloadPhase = 0;
+          noTone(BUZZER_PIN);
+        }
+      }
+    } else if (overloadPhase == 2) {
+      if (loadLevel >= 90) {
+        tone(BUZZER_PIN, 2500); // continuous beep
+      } else {
+        overloadAlertActive = false;
+        overloadPhase = 0;
+        noTone(BUZZER_PIN);
+      }
+    }
+  } else {
+    if (overloadAlertActive) {
+      overloadAlertActive = false;
+      overloadPhase = 0;
+      noTone(BUZZER_PIN);
+    }
+  }
+}
+
+// ======= SLEEP MODE =======
+void checkSleepMode() {
+  if (sleepModeActive) return;
+  if (millis() - lastActivityTime > SLEEP_TIMEOUT) {
+    sleepModeActive = true;
+    tft.fillScreen(BG_DARK);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextSize(2);
+    tft.setTextColor(TEXT_DARK, BG_DARK);
+    tft.drawString("SLEEP MODE", CX, SCR_H/2 - 20);
+    tft.setTextSize(1);
+    tft.drawString("Touch to wake up", CX, SCR_H/2 + 10);
+    tft.writecommand(0x10);
+  }
+}
+
+void wakeUp() {
+  if (!sleepModeActive) return;
+  sleepModeActive = false;
+  tft.writecommand(0x11);
+  delay(120);
+  needFullRedraw = true;
+  lastActivityTime = millis();
+}
+
+// ======= HELPERS =======
+String fmtTime(unsigned long sec) {
+  int h = sec / 3600;
+  int m = (sec % 3600) / 60;
+  int s = sec % 60;
+  char b[10];
+  if (h > 0) sprintf(b, "%d:%02d:%02d", h, m, s);
+  else sprintf(b, "%02d:%02d", m, s);
+  return String(b);
+}
+
+uint16_t speedColor(int s) {
+  if (s < 15) return OK_COLOR;
+  if (s < 25) return WARN_COLOR;
+  return ALERT_COLOR;
+}
+
+String getPraise() {
+  float dist = dailyDistance;
+  if (dist < 0.5) return "Just started!";
+  else if (dist < 2.0) return "Warming up!";
+  else if (dist < 5.0) return "Getting there!";
+  else if (dist < 10.0) return "Great ride!";
+  else if (dist < 20.0) return "You are on fire!";
+  else if (dist < 30.0) return "Amazing!";
+  else return "LEGENDARY!";
+}
+
+// ======= PACER LOGIC =======
+void updatePacer() {
+  if (!pacerActive) return;
+
+  // Check arrival
+  float remainingDist = pacerTotalDist - tripDistance;
+  if (remainingDist <= 0.05 && !pacerArrived) {
+    pacerArrived = true;
+    pacerArrivalTime = millis();
+    pacerSuccessMelody();
+    return;
+  }
+
+  // Show arrival screen for 10 seconds then auto-stop
+  if (pacerArrived) {
+    if (millis() - pacerArrivalTime > PACER_ARRIVAL_DISPLAY_DURATION) {
+      stopPacer();
+    }
+    return;
+  }
+
+  unsigned long elapsed = (millis() - pacerStartTime) / 1000;
+  unsigned long remainingTime = (pacerTotalTimeSec > elapsed) ? pacerTotalTimeSec - elapsed : 0;
+
+  // Target speed is FIXED from start — no dynamic recalculation
+  // pacerTargetSpeed remains as set in startPacer()
+
+  // Warning if deviation > 5 km/h
+  if (currentSpeed > 0 && abs(currentSpeed - pacerTargetSpeed) > 5.0) {
+    if (millis() - pacerWarnTimer > 4000) {
+      pacerWarnTimer = millis();
+      pacerWarning = true;
+      pacerWarningSound();
+    }
+  } else {
+    pacerWarning = false;
+  }
+
+  if (pacerWarning && millis() - pacerWarnTimer > 2500) {
+    pacerWarning = false;
+  }
+
+  // ETA calculation
+  if (currentSpeed > 0) {
+    float hoursRemaining = remainingDist / currentSpeed;
+    unsigned long totalSec = currentHour * 3600UL + currentMinute * 60 + currentSecond + (unsigned long)(hoursRemaining * 3600);
+    int etaH = (totalSec / 3600) % 24;
+    int etaM = (totalSec / 60) % 60;
+    char buf[16];
+    sprintf(buf, "%02d:%02d", etaH, etaM);
+    pacerETA = String(buf);
+  } else {
+    pacerETA = "--:--";
+  }
+}
+
+void startPacer(unsigned long timeMin, float distKm) {
+  pacerTotalTimeSec = timeMin * 60;
+  pacerTotalDist = distKm;
+  pacerStartTime = millis();
+  pacerActive = true;
+  pacerTargetSpeed = (distKm / (float)timeMin) * 60.0;
+  pacerWarning = false;
+  pacerETA = "--:--";
+}
+
+void stopPacer() {
+  pacerActive = false;
+  pacerWarning = false;
+  pacerArrived = false;
+  pacerTargetSpeed = 0;
+  pacerETA = "";
+  needFullRedraw = true;
+}
+
+// ======= DRAWING =======
+void resetAllCache() {
+  lastD_speed = -1; lastD_sat = -1; lastD_time = "";
+  lastD_total = -1; lastD_daily = -1; lastD_tripDist = -1;
+  lastD_temp = -100; lastD_hum = -100;
+  lastD_avg = -1; lastD_max = -1; lastD_elapsed = 999999;
+  lastD_totalElapsed = 999999;
+  lastD_fall = false; lastD_spdAlert = false; lastD_overload = false;
+  lastD_loadReduced = false; lastD_vibWarn = false;
+  lastD_slopeArrow = 0; lastD_slopeVal = -999;
+  buttonsDrawn = false;
+  needFullRedraw = false;
+}
+
+void drawButtons() {
+  if (buttonsDrawn || inSettingsMenu || inStatsMenu || inPacerInput) return;
+  tft.fillRect(BTN1_X, BTN_Y, BTN_W, BTN_H, SETTINGS_COLOR);
+  tft.drawRect(BTN1_X, BTN_Y, BTN_W, BTN_H, TEXT_COLOR);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextSize(1);
+  tft.setTextColor(TFT_BLACK, SETTINGS_COLOR);
+  tft.drawString("SET", BTN1_X + BTN_W/2, BTN_Y + BTN_H/2);
+  tft.fillRect(BTN2_X, BTN_Y, BTN_W, BTN_H, MENU_COLOR);
+  tft.drawRect(BTN2_X, BTN_Y, BTN_W, BTN_H, TEXT_COLOR);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextSize(1);
+  tft.setTextColor(TFT_BLACK, MENU_COLOR);
+  tft.drawString("STATS", BTN2_X + BTN_W/2, BTN_Y + BTN_H/2);
+  uint16_t pacerBtnCol = pacerActive ? ALERT_COLOR : PACER_COLOR;
+  tft.fillRect(BTN3_X, BTN_Y, BTN_W, BTN_H, pacerBtnCol);
+  tft.drawRect(BTN3_X, BTN_Y, BTN_W, BTN_H, TEXT_COLOR);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextSize(1);
+  tft.setTextColor(TFT_BLACK, pacerBtnCol);
+  tft.drawString("PACER", BTN3_X + BTN_W/2, BTN_Y + BTN_H/2);
+  tft.fillRect(BTN4_X, BTN_Y, BTN_W, BTN_H, RESTART_COLOR);
+  tft.drawRect(BTN4_X, BTN_Y, BTN_W, BTN_H, TEXT_COLOR);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextSize(1);
+  tft.setTextColor(TFT_BLACK, RESTART_COLOR);
+  tft.drawString("RST", BTN4_X + BTN_W/2, BTN_Y + BTN_H/2);
+  buttonsDrawn = true;
+}
+
+void drawStatusBar() {
+  if (timeStr != lastD_time) {
+    tft.fillRect(5, 2, 90, 22, BG_COLOR);
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextSize(2);
+    tft.setTextColor(timeSet ? ACCENT_COLOR : DIM_COLOR, BG_COLOR);
+    tft.drawString(timeStr, 5, 2);
+    lastD_time = timeStr;
+  }
+  if (satellites != lastD_sat) {
+    tft.fillRect(SCR_W - 70, 2, 65, 20, BG_COLOR);
+    tft.setTextDatum(TR_DATUM);
+    tft.setTextSize(1);
+    uint16_t satCol = isDarkTheme ? TFT_DARKGREY : SAT_COLOR;
+    tft.setTextColor(satCol, BG_COLOR);
+    String s = "SAT:" + String(satellites);
+    tft.drawString(s, SCR_W - 5, 5);
+    lastD_sat = satellites;
+  }
+  tft.drawLine(0, 26, SCR_W, 26, DIM_COLOR);
+}
+
+void drawSlopeArrow() {
+  int x = 5;
+  int yUp = 30;
+  int yMid = 50;
+  int yDown = 70;
+
+  bool isUp = (roadSlope >= 5.0);
+  bool isDown = (roadSlope <= -5.0);
+  bool isFlat = (!isUp && !isDown);
+
+  // Always redraw - no cache for slope, updates every 100ms
+  tft.fillRect(0, 28, 40, 65, BG_COLOR);
+
+  // Up arrow (climb)
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextSize(2);
+  tft.setTextColor(isUp ? ALERT_COLOR : DIM_COLOR, BG_COLOR);
+  tft.drawString("\x1E", x, yUp);
+
+  // Middle square (flat) - uses calibrated neutral position
+  tft.setTextSize(2);
+  tft.setTextColor(isFlat ? OK_COLOR : DIM_COLOR, BG_COLOR);
+  tft.drawString("\x7F", x, yMid);
+
+  // Down arrow (descent)
+  tft.setTextSize(2);
+  tft.setTextColor(isDown ? ALERT_COLOR : DIM_COLOR, BG_COLOR);
+  tft.drawString("\x1F", x, yDown);
+
+  lastD_slopeArrow = isUp ? '^' : (isDown ? 'v' : 0);
+  lastD_slopeVal = roadSlope;
+}
+
+void drawSpeedometer() {
+  bool pacerBlink = pacerActive && pacerWarning && (millis() % 1000 < 500);
+  if (currentSpeed == lastD_speed && lastD_speed >= 0 && !pacerBlink && !needFullRedraw) return;
+
+  int cx = CX + 10;
+  int cy = 130;
+  int radius = 70;
+  int maxSpeed = 50;
+
+  tft.fillRect(40, 60, SCR_W - 40, 150, BG_COLOR);
+
+  float angle = 180.0 - ((float)currentSpeed / maxSpeed) * 180.0;
+  if (angle < 0) angle = 0;
+  if (angle > 180) angle = 180;
+
+  tft.drawArc(cx, cy, radius, radius - 10, 180, 0, DIM_COLOR, BG_COLOR, true);
+  if (currentSpeed > 0) {
+    uint16_t col = speedColor(currentSpeed);
+    if (pacerActive && abs(currentSpeed - pacerTargetSpeed) > 2.0) {
+      col = WARN_COLOR;
+    }
+    tft.drawArc(cx, cy, radius, radius - 10, 180, angle, col, BG_COLOR, true);
+  }
+
+  for (int i = 0; i <= 10; i++) {
+    int val = i * 5;
+    float ang = 180.0 - ((float)val / maxSpeed) * 180.0;
+    float rad = ang * DEG_TO_RAD;
+    int x1 = cx + (radius - 4) * cos(rad);
+    int y1 = cy - (radius - 4) * sin(rad);
+    int x2 = cx + (radius - 14) * cos(rad);
+    int y2 = cy - (radius - 14) * sin(rad);
+    uint16_t col = (i % 2 == 0) ? TEXT_COLOR : DIM_COLOR;
+    tft.drawLine(x1, y1, x2, y2, col);
+    if (i % 2 == 0) {
+      int xt = cx + (radius - 24) * cos(rad);
+      int yt = cy - (radius - 24) * sin(rad);
+      tft.setTextDatum(MC_DATUM);
+      tft.setTextSize(1);
+      tft.setTextColor(DIM_COLOR, BG_COLOR);
+      tft.drawString(String(val), xt, yt);
+    }
+  }
+
+  int arrowLen = radius - 20;
+  float rad = angle * DEG_TO_RAD;
+  int x = cx + arrowLen * cos(rad);
+  int y = cy - arrowLen * sin(rad);
+  tft.drawLine(cx, cy, x, y, ACCENT_COLOR);
+  tft.fillCircle(cx, cy, 5, ACCENT_COLOR);
+
+  uint16_t spdCol = TEXT_COLOR;
+  if (pacerActive) {
+    if (pacerBlink) spdCol = WARN_COLOR;
+    else if (abs(currentSpeed - pacerTargetSpeed) > 5.0) spdCol = WARN_COLOR;
+  }
+
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextSize(6);
+  tft.setTextColor(spdCol, BG_COLOR);
+  tft.drawString(String(currentSpeed), cx, cy + 6);
+  tft.setTextSize(1);
+  tft.setTextColor(ACCENT_COLOR, BG_COLOR);
+  tft.drawString("km/h", cx, cy + 30);
+  tft.setTextSize(2);
+  tft.setTextColor(ACCENT_COLOR, BG_COLOR);
+  tft.drawString(String(getGear()), cx, cy + 48);
+
+  if (pacerActive && !pacerArrived) {
+    tft.setTextSize(2);
+    tft.setTextColor(PACER_COLOR, BG_COLOR);
+    char buf[32];
+    sprintf(buf, "Speed:%.1f", pacerTargetSpeed);
+    tft.drawString(buf, cx, cy + 62);
+  }
+
+  lastD_speed = currentSpeed;
+}
+
+void drawTempHum() {
+  bool changed = (abs(temperature - lastD_temp) > 0.2) || 
+                 (abs(humidity - lastD_hum) > 1.0) ||
+                 (lastD_temp < -50);
+  if (!changed && !needFullRedraw) return;
+  int y = 205;
+  tft.fillRect(10, y, SCR_W - 20, 24, BG_COLOR);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextSize(1);
+  tft.setTextColor(ACCENT_COLOR, BG_COLOR);
+  tft.setCursor(20, y);
+  tft.print("TEMP");
+  tft.setTextSize(2);
+  tft.setTextColor(dhtDataValid ? TEXT_COLOR : ACCENT_COLOR, BG_COLOR);
+  tft.setCursor(20, y + 12);
+  if (dhtDataValid) {
+    tft.print(temperature, 1);
+    tft.print("C");
+  } else {
+    tft.print("--.-");
+  }
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextSize(1);
+  tft.setTextColor(ACCENT_COLOR, BG_COLOR);
+  tft.setCursor(SCR_W - 80, y);
+  tft.print("HUM");
+  tft.setTextSize(2);
+  tft.setTextColor(dhtDataValid ? TEXT_COLOR : ACCENT_COLOR, BG_COLOR);
+  tft.setCursor(SCR_W - 80, y + 12);
+  if (dhtDataValid) {
+    tft.print(humidity, 0);
+    tft.print("%");
+  } else {
+    tft.print("--");
+  }
+  lastD_temp = temperature;
+  lastD_hum = humidity;
+}
+
+void drawTripStats() {
+  if (tripElapsedSec > 0) {
+    tripAvgSpeed = (tripDistance / (float)tripElapsedSec) * 3600.0;
+  } else {
+    tripAvgSpeed = 0.0;
+  }
+  bool changed = (abs(tripAvgSpeed - lastD_avg) > 0.5) ||
+                 (abs(tripMaxSpeed - lastD_max) > 0.5) ||
+                 (tripElapsedSec != lastD_elapsed) ||
+                 (totalTripElapsedSec != lastD_totalElapsed);
+  if (!changed && !needFullRedraw) return;
+  int y = 236;
+  int h = 30;
+  tft.fillRect(0, y, SCR_W, h, BG_COLOR);
+  tft.drawLine(0, y + h, SCR_W, y + h, DIM_COLOR);
+  tft.setTextSize(1);
+  tft.setTextColor(DIM_COLOR, BG_COLOR);
+  tft.setTextDatum(TC_DATUM);
+  tft.drawString("AVG", 35, y + 2);
+  tft.setTextSize(2);
+  tft.setTextColor(OK_COLOR, BG_COLOR);
+  tft.drawString(String((int)(tripAvgSpeed + 0.5)), 35, y + 16);
+  tft.setTextSize(1);
+  tft.setTextColor(DIM_COLOR, BG_COLOR);
+  tft.drawString("MAX", 105, y + 2);
+  tft.setTextSize(2);
+  tft.setTextColor(WARN_COLOR, BG_COLOR);
+  tft.drawString(String((int)(tripMaxSpeed + 0.5)), 105, y + 16);
+  tft.setTextSize(1);
+  tft.setTextColor(DIM_COLOR, BG_COLOR);
+  tft.drawString("RIDING", 185, y + 2);
+  tft.setTextSize(2);
+  tft.setTextColor(ACCENT_COLOR, BG_COLOR);
+  tft.drawString(fmtTime(tripElapsedSec), 185, y + 16);
+  lastD_avg = tripAvgSpeed;
+  lastD_max = tripMaxSpeed;
+  lastD_elapsed = tripElapsedSec;
+}
+
+void drawOdometers() {
+  bool changed = (abs(totalDistance - lastD_total) > 0.01) ||
+                 (abs(dailyDistance - lastD_daily) > 0.01) ||
+                 (abs(tripDistance - lastD_tripDist) > 0.01);
+  if (!changed && !needFullRedraw) return;
+  int y = 266;
+  tft.fillRect(0, y, SCR_W, 30, BG_COLOR);
+  tft.setTextDatum(TC_DATUM);
+  tft.setTextSize(1);
+  tft.setTextColor(DIM_COLOR, BG_COLOR);
+  tft.drawString("TOTAL", 55, y + 2);
+  tft.setTextSize(2);
+  tft.setTextColor(TEXT_COLOR, BG_COLOR);
+  char b1[12]; dtostrf(totalDistance, 1, 2, b1);
+  tft.drawString(String(b1) + " km", 55, y + 18);
+  tft.setTextSize(1);
+  tft.setTextColor(DIM_COLOR, BG_COLOR);
+  tft.drawString("DAILY", 175, y + 2);
+  tft.setTextSize(2);
+  tft.setTextColor(ACCENT_COLOR, BG_COLOR);
+  char b2[12]; dtostrf(dailyDistance, 1, 2, b2);
+  tft.drawString(String(b2) + " km", 175, y + 18);
+  tft.drawLine(SCR_W / 2, y + 4, SCR_W / 2, y + 26, DIM_COLOR);
+  lastD_total = totalDistance;
+  lastD_daily = dailyDistance;
+  lastD_tripDist = tripDistance;
+}
+
+void drawAlerts() {
+  static bool lastNoGps = false;
+  bool noGpsNow = !gps.getGnssFixOk();
+  if (noGpsNow != lastNoGps) {
+    if (noGpsNow) {
+      tft.fillRect(10, 40, SCR_W - 20, 25, ALERT_COLOR);
+      tft.setTextDatum(MC_DATUM);
+      tft.setTextSize(2);
+      tft.setTextColor(TEXT_COLOR, ALERT_COLOR);
+      tft.drawString("NO GPS FIX!", CX, 52);
+    } else {
+      tft.fillRect(10, 40, SCR_W - 20, 25, BG_COLOR);
+    }
+    lastNoGps = noGpsNow;
+  }
+
+  if (fallDetected != lastD_fall) {
+    if (fallDetected) {
+      tft.fillRect(20, 40, SCR_W - 40, 22, ALERT_COLOR);
+      tft.setTextDatum(MC_DATUM);
+      tft.setTextSize(2);
+      tft.setTextColor(TEXT_COLOR, ALERT_COLOR);
+      tft.drawString("! FALL DETECTED !", CX + 10, 51);
+    } else {
+      tft.fillRect(20, 40, SCR_W - 40, 22, BG_COLOR);
+    }
+    lastD_fall = fallDetected;
+  }
+  if (speedAlertActive != lastD_spdAlert) {
+    if (speedAlertActive) {
+      tft.fillRect(20, 65, SCR_W - 40, 20, WARN_COLOR);
+      tft.setTextDatum(MC_DATUM);
+      tft.setTextSize(2);
+      tft.setTextColor(BG_COLOR, WARN_COLOR);
+      tft.drawString("SPEED LIMIT!", CX + 10, 75);
+    } else {
+      tft.fillRect(20, 65, SCR_W - 40, 20, BG_COLOR);
+    }
+    lastD_spdAlert = speedAlertActive;
+  }
+  if (vibrationWarningActive != lastD_vibWarn) {
+    if (vibrationWarningActive) {
+      tft.fillRect(20, 88, SCR_W - 40, 20, WARN_COLOR);
+      tft.setTextDatum(MC_DATUM);
+      tft.setTextSize(2);
+      tft.setTextColor(BG_COLOR, WARN_COLOR);
+      tft.drawString("SLOW DOWN!", CX + 10, 98);
+    } else {
+      tft.fillRect(20, 88, SCR_W - 40, 20, BG_COLOR);
+    }
+    lastD_vibWarn = vibrationWarningActive;
+  }
+  if (overloadAlertActive != lastD_overload) {
+    if (overloadAlertActive) {
+      tft.fillRect(10, 112, SCR_W - 20, 30, ALERT_COLOR);
+      tft.setTextDatum(MC_DATUM);
+      tft.setTextSize(2);
+      tft.setTextColor(TEXT_COLOR, ALERT_COLOR);
+      tft.drawString("KNEE OVERLOAD!", CX, 125);
+      tft.setTextSize(1);
+      tft.drawString("REST NOW!", CX, 142);
+    } else {
+      tft.fillRect(45, 58, SCR_W - 50, 25, BG_COLOR);
+    }
+    lastD_overload = overloadAlertActive;
+  }
+  if (showLoadReduced != lastD_loadReduced) {
+    if (showLoadReduced) {
+      tft.fillRect(10, 148, SCR_W - 20, 30, OK_COLOR);
+      tft.setTextDatum(MC_DATUM);
+      tft.setTextSize(1);
+      tft.setTextColor(TFT_BLACK, OK_COLOR);
+      tft.drawString("LOAD LEVEL LOWERED", CX, 160);
+      tft.drawString("TO MEDIUM", CX, 175);
+    } else {
+      tft.fillRect(10, 148, SCR_W - 20, 30, BG_COLOR);
+    }
+    lastD_loadReduced = showLoadReduced;
+  }
+
+  // Slope rapid change alert
+  static bool lastSlopeAlert = false;
+  if (slopeAlertActive != lastSlopeAlert) {
+    if (slopeAlertActive) {
+      tft.fillRect(45, 58, SCR_W - 50, 25, WARN_COLOR);
+      tft.setTextDatum(MC_DATUM);
+      tft.setTextSize(2);
+      tft.setTextColor(TFT_BLACK, WARN_COLOR);
+      tft.drawString("SLOW TO 10 KM/H!", CX, 70);
+      tft.setTextSize(1);
+      tft.drawString("SLOPE CHANGE!", CX, 82);
+    } else {
+      tft.fillRect(45, 58, SCR_W - 50, 25, BG_COLOR);
+    }
+    lastSlopeAlert = slopeAlertActive;
+  }
+}
+
+void drawPacerInfo() {
+  if (!pacerActive) return;
+
+  // Arrival success screen
+  if (pacerArrived) {
+    tft.fillScreen(OK_COLOR);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextSize(3);
+    tft.setTextColor(TFT_BLACK, OK_COLOR);
+    tft.drawString("SUCCESS!", CX, 100);
+    tft.setTextSize(2);
+    tft.drawString("You made it!", CX, 150);
+    tft.setTextSize(1);
+    tft.setTextColor(TFT_DARKGREEN, OK_COLOR);
+    char buf[64];
+    unsigned long elapsed = (pacerArrivalTime - pacerStartTime) / 1000;
+    int h = elapsed / 3600;
+    int m = (elapsed % 3600) / 60;
+    int s = elapsed % 60;
+    sprintf(buf, "Time: %02d:%02d:%02d | Dist: %.2f km", h, m, s, pacerTotalDist);
+    tft.drawString(buf, CX, 200);
+    tft.setTextSize(2);
+    tft.setTextColor(TFT_BLACK, OK_COLOR);
+    tft.drawString("Touch to continue", CX, 260);
+    return;
+  }
+
+  // ETA under satellites in top-right
+  static String lastETA = "";
+  if (pacerETA != lastETA || needFullRedraw) {
+    tft.fillRect(SCR_W - 90, 24, 85, 22, BG_COLOR);
+    tft.setTextDatum(TR_DATUM);
+    tft.setTextSize(2);
+    tft.setTextColor(PACER_COLOR, BG_COLOR);
+    tft.drawString("ETA:" + pacerETA, SCR_W - 5, 38);
+    lastETA = pacerETA;
+  }
+}
+
+void drawUI() {
+  if (pacerActive && pacerArrived) {
+    drawPacerInfo();
+    return;
+  }
+  if (needFullRedraw) {
+    tft.fillScreen(BG_COLOR);
+    resetAllCache();
+    drawSlopeArrow();
+  }
+  drawStatusBar();
+  drawSpeedometer();
+  drawTempHum();
+  drawTripStats();
+  drawOdometers();
+  drawAlerts();
+  drawPacerInfo();
+  if (!inPacerInput) drawButtons();
+}
+
+// ======= PAGE 1 - STATISTICS =======
+void drawPageStats() {
+  tft.fillScreen(BG_COLOR);
+  resetAllCache();
+  tft.setTextDatum(TC_DATUM);
+  tft.setTextSize(2);
+  tft.setTextColor(ACCENT_COLOR, BG_COLOR);
+  tft.drawString("STATISTICS", CX, 15);
+  tft.drawLine(20, 40, SCR_W - 20, 40, DIM_COLOR);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextSize(1);
+  tft.setTextColor(DIM_COLOR, BG_COLOR);
+  tft.drawString("AVG speed", 20, 55);
+  tft.setTextSize(2);
+  tft.setTextColor(OK_COLOR, BG_COLOR);
+  tft.drawString(String((int)(tripAvgSpeed + 0.5)) + " km/h", 20, 75);
+  tft.setTextSize(1);
+  tft.setTextColor(DIM_COLOR, BG_COLOR);
+  tft.drawString("MAX speed", 20, 105);
+  tft.setTextSize(2);
+  tft.setTextColor(WARN_COLOR, BG_COLOR);
+  tft.drawString(String((int)(tripMaxSpeed + 0.5)) + " km/h", 20, 125);
+  tft.setTextSize(1);
+  tft.setTextColor(DIM_COLOR, BG_COLOR);
+  tft.drawString("Moving time", 20, 155);
+  tft.setTextSize(2);
+  tft.setTextColor(ACCENT_COLOR, BG_COLOR);
+  tft.drawString(fmtTime(tripElapsedSec), 20, 175);
+  tft.setTextSize(1);
+  tft.setTextColor(DIM_COLOR, BG_COLOR);
+  tft.drawString("Total time", 20, 205);
+  tft.setTextSize(2);
+  tft.setTextColor(TEXT_COLOR, BG_COLOR);
+  tft.drawString(fmtTime(totalTripElapsedSec), 20, 225);
+  tft.setTextSize(1);
+  tft.setTextColor(DIM_COLOR, BG_COLOR);
+  tft.drawString("Calories", 20, 255);
+  tft.setTextSize(2);
+  tft.setTextColor(WARN_COLOR, BG_COLOR);
+  char cStr[12]; dtostrf(calories, 1, 0, cStr);
+  tft.drawString(String(cStr) + " kcal", 20, 275);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextSize(1);
+  tft.setTextColor(DIM_COLOR, BG_COLOR);
+  tft.drawString("Touch screen to return", CX, 310);
+}
+
+// ======= STATS MENU =======
+void drawStatsMenu() {
+  tft.fillScreen(BG_COLOR);
+  resetAllCache();
+  tft.setTextDatum(TC_DATUM);
+  tft.setTextSize(2);
+  tft.setTextColor(ACCENT_COLOR, BG_COLOR);
+  tft.drawString("STATISTICS", CX, 15);
+  tft.drawLine(20, 40, SCR_W - 20, 40, DIM_COLOR);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextSize(1);
+  tft.setTextColor(DIM_COLOR, BG_COLOR);
+  tft.drawString("Today's distance", 20, 55);
+  tft.setTextSize(2);
+  tft.setTextColor(TEXT_COLOR, BG_COLOR);
+  char dStr[12]; dtostrf(dailyDistance, 1, 2, dStr);
+  tft.drawString(String(dStr) + " km", 20, 75);
+  tft.setTextSize(1);
+  tft.setTextColor(DIM_COLOR, BG_COLOR);
+  tft.drawString("Total time", 20, 105);
+  tft.setTextSize(2);
+  tft.setTextColor(ACCENT_COLOR, BG_COLOR);
+  tft.drawString(fmtTime(totalTripElapsedSec), 20, 125);
+  tft.setTextSize(1);
+  tft.setTextColor(DIM_COLOR, BG_COLOR);
+  tft.drawString("Calories", 20, 155);
+  tft.setTextSize(2);
+  tft.setTextColor(WARN_COLOR, BG_COLOR);
+  char cStr[12]; dtostrf(calories, 1, 0, cStr);
+  tft.drawString(String(cStr) + " kcal", 20, 175);
+
+  tft.setTextSize(1);
+  tft.setTextColor(DIM_COLOR, BG_COLOR);
+  tft.drawString("Knee load", 20, 200);
+  uint16_t loadColor2 = getLoadColor(loadLevel);
+  String loadLabel;
+  if (loadLevel < 40) loadLabel = "LOW";
+  else if (loadLevel < 70) loadLabel = "MEDIUM";
+  else if (loadLevel < 90) loadLabel = "HIGH";
+  else loadLabel = "CRITICAL";
+  int barX = 20, barY = 220, barW = 140, barH = 20;
+  tft.drawRect(barX, barY, barW, barH, DIM_COLOR);
+  int fillW = constrain((int)(loadLevel / 100.0 * barW), 0, barW);
+  tft.fillRect(barX + 1, barY + 1, fillW, barH - 2, loadColor2);
+
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextSize(4);
+  tft.setTextColor(loadColor2, BG_COLOR);
+  tft.drawString(String((int)loadLevel) + "%", barX + barW + 10, barY - 8);
+
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextSize(2);
+  tft.setTextColor(loadColor2, BG_COLOR);
+  tft.drawString(loadLabel, barX + barW + 10, barY + 20);
+
+  if (loadLevel >= 95) {
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextSize(2);
+    tft.setTextColor(ALERT_COLOR, BG_COLOR);
+    tft.drawString("ATTENTION !", CX, 265);
+  }
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextSize(2);
+  tft.setTextColor(OK_COLOR, BG_COLOR);
+  tft.drawString(getPraise(), CX, 280);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextSize(1);
+  tft.setTextColor(DIM_COLOR, BG_COLOR);
+  tft.drawString("Touch button to exit", CX, 310);
+}
+
+// ======= SETTINGS MENU =======
+void drawSettingsMenu() {
+  tft.fillScreen(BG_COLOR);
+  resetAllCache();
+  settingsEnterTime = millis();
+  settingsClosingSoundPlayed = false;
+  tft.drawRect(10, 10, SCR_W - 20, SCR_H - 20, ACCENT_COLOR);
+  tft.setTextDatum(TC_DATUM);
+  tft.setTextSize(2);
+  tft.setTextColor(ACCENT_COLOR, BG_COLOR);
+  tft.drawString("SETTINGS", CX, 30);
+  tft.drawLine(20, 55, SCR_W - 20, 55, DIM_COLOR);
+  struct Item { int y; const char* txt; };
+  Item items[] = {
+    {75,  "1. Reset TOTAL"},
+    {101, "2. Reset DAILY"},
+    {127, "3. Update weather"},
+    {153, "4. Reset MAX speed"},
+    {179, "5. Reset STATS"},
+    {205, soundEnabled ? "6. Mute sounds" : "6. Enable sounds"},
+    {231, "7. Re-init modules"},
+    {257, "8. Redraw screen"},
+    {283, "9. EXIT"}
+  };
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextSize(2);
+  for (auto &it : items) {
+    tft.setTextColor(TEXT_COLOR, BG_COLOR);
+    tft.drawString(it.txt, 30, it.y);
+  }
+}
+
+// ======= PACER INPUT =======
+void drawPacerKeyboard(bool showDot) {
+  const char* keys1[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "OK"};
+  const char* keys2[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "OK"};
+  const char** keys = showDot ? keys2 : keys1;
+  int kw = 60, kh = 38, gap = 8;
+  int startX = 20, startY = 130;
+  for (int i = 0; i < 12; i++) {
+    int col = i % 3;
+    int row = i / 3;
+    int x = startX + col * (kw + gap);
+    int y = startY + row * (kh + gap);
+    uint16_t btnCol = (strcmp(keys[i], "OK") == 0) ? OK_COLOR : ((strcmp(keys[i], "C") == 0 || strcmp(keys[i], ".") == 0) ? ALERT_COLOR : DIM_COLOR);
+    if (strcmp(keys[i], ".") == 0) btnCol = WARN_COLOR;
+    tft.fillRect(x, y, kw, kh, btnCol);
+    tft.drawRect(x, y, kw, kh, TEXT_COLOR);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextSize(2);
+    tft.setTextColor(TFT_BLACK, btnCol);
+    tft.drawString(keys[i], x + kw/2, y + kh/2);
+  }
+}
+
+void drawPacerInput(const char* title, const char* unit) {
+  tft.fillScreen(BG_COLOR);
+  resetAllCache();
+  tft.setTextDatum(TC_DATUM);
+  tft.setTextSize(2);
+  tft.setTextColor(ACCENT_COLOR, BG_COLOR);
+  tft.drawString(title, CX, 30);
+  tft.drawLine(20, 55, SCR_W - 20, 55, DIM_COLOR);
+
+  // Input field
+  tft.fillRect(40, 70, 160, 40, BG_DARK);
+  tft.drawRect(40, 70, 160, 40, ACCENT_COLOR);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextSize(3);
+  tft.setTextColor(TEXT_DARK, BG_DARK);
+  tft.drawString(pacerInputBuffer, CX, 90);
+
+  tft.setTextSize(1);
+  tft.setTextColor(DIM_COLOR, BG_COLOR);
+  tft.drawString(unit, CX, 118);
+
+  bool showDot = (pacerInputStep == 1);
+  drawPacerKeyboard(showDot);
+}
+
+void handlePacerTouch(int x, int y) {
+  const char* keys1[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "OK"};
+  const char* keys2[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "OK"};
+  const char** keys = (pacerInputStep == 1) ? keys2 : keys1;
+  int kw = 60, kh = 38, gap = 8;
+  int startX = 20, startY = 130;
+  for (int i = 0; i < 12; i++) {
+    int col = i % 3;
+    int row = i / 3;
+    int bx = startX + col * (kw + gap);
+    int by = startY + row * (kh + gap);
+    if (x >= bx && x <= bx + kw && y >= by && y <= by + kh) {
+      if (strcmp(keys[i], "OK") == 0) {
+        menuSound();
+        if (pacerInputBuffer.length() > 0) {
+          if (pacerInputStep == 0) {
+            pacerInputValue = pacerInputBuffer.toInt();
+            if (pacerInputValue > 0) {
+              pacerInputStep = 1;
+              pacerInputBuffer = "";
+              drawPacerInput("ENTER DISTANCE", "km");
+            }
+          } else {
+            float dist = pacerInputBuffer.toFloat();
+            if (dist > 0) {
+              startPacer(pacerInputValue, dist);
+              inPacerInput = false;
+              needFullRedraw = true;
+              showToast("PACER STARTED!");
+            }
+          }
+        }
+      } else if (strcmp(keys[i], "C") == 0) {
+        menuSound();
+        pacerInputBuffer = "";
+        if (pacerInputStep == 0) drawPacerInput("ENTER TIME", "minutes");
+        else drawPacerInput("ENTER DISTANCE", "km");
+      } else if (strcmp(keys[i], ".") == 0) {
+        if (pacerInputBuffer.indexOf('.') < 0 && pacerInputBuffer.length() > 0 && pacerInputBuffer.length() < 5) {
+          pacerInputBuffer += ".";
+          drawPacerInput("ENTER DISTANCE", "km");
+        }
+      } else {
+        if (pacerInputBuffer.length() < 5) {
+          pacerInputBuffer += keys[i];
+          if (pacerInputStep == 0) drawPacerInput("ENTER TIME", "minutes");
+          else drawPacerInput("ENTER DISTANCE", "km");
+        }
+      }
+      return;
+    }
+  }
+}
+
+void handleTouchMenu(int x, int y) {
+  if (x > 20 && x < 220) {
+    if (y > 62 && y < 88) {
+      totalDistance = 0;
+      saveDistance();
+      menuSound();
+      showToast("TOTAL reset!");
+    }
+    else if (y > 88 && y < 114) {
+      dailyDistance = 0;
+      tripDistance = 0;
+      saveStats();
+      menuSound();
+      showToast("DAILY reset!");
+    }
+    else if (y > 114 && y < 140) {
+      forceDHTUpdate();
+      menuSound();
+      showToast("Weather updated");
+    }
+    else if (y > 140 && y < 166) {
+      tripMaxSpeed = 0;
+      saveStats();
+      menuSound();
+      showToast("MAX speed reset");
+    }
+    else if (y > 166 && y < 192) {
+      resetStats();
+      menuSound();
+      showToast("STATS reset!");
+    }
+    else if (y > 192 && y < 218) {
+      soundEnabled = !soundEnabled;
+      if (soundEnabled) {
+        showToast("Sounds ON");
+        menuSound();
+      } else {
+        noTone(BUZZER_PIN);
+        showToast("Sounds OFF");
+      }
+      drawSettingsMenu();
+    }
+    else if (y > 218 && y < 244) {
+      inSettingsMenu = false;
+      inInitScreen = true;
+      needFullRedraw = true;
+      runInitialization(true);
+    }
+    else if (y > 244 && y < 270) {
+      inSettingsMenu = false;
+      needFullRedraw = true;
+      menuSound();
+      showToast("Screen redrawn");
+    }
+    else if (y > 270 && y < 296) {
+      inSettingsMenu = false;
+      needFullRedraw = true;
+      settingsCloseSound();
+    }
+  }
+}
+
+void showToast(const char* msg) {
+  tft.fillRect(30, 140, 180, 30, DIM_COLOR);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextSize(2);
+  tft.setTextColor(OK_COLOR, DIM_COLOR);
+  tft.drawString(msg, CX, 155);
+  delay(800);
+  if (inSettingsMenu) drawSettingsMenu();
+}
+
+void restartDevice() {
+  restartSound();
+  delay(300);
+  ESP.restart();
+}
+
+// ======= INITIALIZATION =======
+bool checkTouchHold() {
+  static unsigned long touchStart = 0;
+  static bool wasTouching = false;
+
+  if (touchscreen.tirqTouched() && touchscreen.touched()) {
+    if (!wasTouching) {
+      wasTouching = true;
+      touchStart = millis();
+    }
+    if (millis() - touchStart > 1000) {
+      wasTouching = false;
+      return true;
+    }
+  } else {
+    wasTouching = false;
+  }
+  return false;
+}
+
+void showInitError(const char* moduleName) {
+  tft.fillScreen(BG_COLOR);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextSize(2);
+  tft.setTextColor(ALERT_COLOR, BG_COLOR);
+  tft.drawString("INIT ERROR!", CX, 80);
+  tft.setTextSize(1);
+  tft.setTextColor(TEXT_COLOR, BG_COLOR);
+  char buf[60];
+  sprintf(buf, "%s not initialized!", moduleName);
+  tft.drawString(buf, CX, 120);
+  tft.setTextColor(WARN_COLOR, BG_COLOR);
+  tft.drawString("Check connection!", CX, 145);
+  tft.setTextColor(DIM_COLOR, BG_COLOR);
+  tft.setTextSize(2); tft.setTextColor(OK_COLOR, BG_COLOR); tft.drawString("HOLD SCREEN TO SKIP", CX, 200);
+}
+
+bool runInitialization(bool fromSettings) {
+  inInitScreen = true;
+
+  if (!fromSettings) {
+    tft.fillScreen(BG_COLOR);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextSize(3);
+    tft.setTextColor(ACCENT_COLOR, BG_COLOR);
+    tft.drawString("ESPBike", CX, 80);
+    tft.setTextSize(2);
+    tft.setTextColor(TEXT_COLOR, BG_COLOR);
+    tft.drawString("By YaTvik", CX, 140);
+    delay(1500);
+  }
+
+  tft.fillScreen(BG_COLOR);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextSize(2);
+  tft.setTextColor(ACCENT_COLOR, BG_COLOR);
+  tft.drawString("INITIALIZING...", 15, 20);
+
+  EEPROM.begin(EEPROM_SIZE);
+  findBestSector();
+  loadDistance();
+  loadStats();
+  modules.eepromOK = true;
+
+  int y = 60;
+  auto ok = [&](const char* name, bool good, const char* failName) -> bool {
+    tft.setTextSize(1);
+    tft.setTextColor(ACCENT_COLOR, BG_COLOR);
+    tft.drawString(name, 20, y);
+    if (good) {
+      tft.setTextColor(OK_COLOR, BG_COLOR);
+      tft.drawString("[ OK ]", 170, y);
+      y += 22;
+      return true;
+    } else {
+      tft.setTextColor(ALERT_COLOR, BG_COLOR);
+      tft.drawString("[FAIL]", 170, y);
+      y += 22;
+      showInitError(failName);
+      unsigned long errorStart = millis();
+      while (millis() - errorStart < 30000) {
+        if (checkTouchHold()) {
+          menuSound();
+          tft.fillScreen(BG_COLOR);
+          tft.setTextDatum(TL_DATUM);
+          tft.setTextSize(2);
+          tft.setTextColor(ACCENT_COLOR, BG_COLOR);
+          tft.drawString("INITIALIZING...", 15, 20);
+          y = 60;
+          return false;
+        }
+        delay(50);
+      }
+      return false;
+    }
+  };
+
+  modules.tftOK = true;
+  delay(200); 
+  if (!ok("TFT", true, "TFT")) {}
+
+  delay(200); 
+  if (!ok("EEPROM", modules.eepromOK, "EEPROM")) { modules.eepromOK = false; }
+
+  delay(200); 
+  touchscreenSPI.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
+  touchscreen.begin(touchscreenSPI); 
+  touchscreen.setRotation(0); 
+  modules.touchOK = true;
+  if (!ok("TOUCH", true, "TOUCH")) { modules.touchOK = false; }
+
+  delay(200); 
+  modules.mpuOK = initMPU6050();
+  if (!ok("MPU6050", modules.mpuOK, "MPU6050")) { modules.mpuOK = false; }
+
+  if (modules.mpuOK) {
+    detectAxes();
+    calibrateSlope();
+  }
+
+  delay(300); 
+  gpsSerial.begin(38400, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN); 
+  modules.gpsOK = gps.begin(gpsSerial);
+  if (!ok("GPS", modules.gpsOK, "GPS")) { modules.gpsOK = false; }
+
+  delay(200); 
+  initBuzzer(); 
+  if (!ok("BUZZER", true, "BUZZER")) { modules.buzzerOK = false; }
+
+  delay(200); 
+  dht.begin(); 
+  readDHT11(); 
+  modules.dhtOK = dhtDataValid;
+  if (!ok("DHT11", modules.dhtOK, "DHT11")) { modules.dhtOK = false; }
+
+  float eepromHealth = getEEPROMHealth();
+  tft.setTextSize(2);
+  uint16_t healthColor = (eepromHealth > 60) ? OK_COLOR : (eepromHealth > 30) ? WARN_COLOR : ALERT_COLOR;
+  tft.setTextColor(healthColor, BG_COLOR);
+  char healthBuf[40];
+  sprintf(healthBuf, "EEPROM: %.0f%%", eepromHealth);
+  tft.drawString(healthBuf, 20, y);
+  y += 28;
+
+  if (eepromHealth < 30) {
+    tft.setTextSize(2);
+    tft.setTextColor(ALERT_COLOR, BG_COLOR);
+    tft.drawString("WARNING: EEPROM LOW!", 20, y);
+    y += 28;
+  }
+
+  tft.setTextSize(2);
+  tft.setTextColor(OK_COLOR, BG_COLOR);
+  tft.drawString("SYSTEM READY!", 40, y + 15);
+  startupMelody();
+  delay(1500);
+
+  if (!fromSettings) {
+    tft.fillScreen(WARN_COLOR);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextSize(3);
+    tft.setTextColor(TFT_BLACK, WARN_COLOR);
+    tft.drawString("!", CX, 60);
+    tft.setTextSize(2);
+    tft.setTextColor(TFT_RED, WARN_COLOR);
+    tft.drawString("ATTENTION!", CX, 120);
+    tft.setTextSize(1);
+    tft.setTextColor(TFT_BLACK, WARN_COLOR);
+    tft.drawString("CHECK BEFORE RIDE!", CX, 160);
+    tft.drawString("CHECK BRAKES", CX, 180);
+    tft.drawString("AND ALL BOLTS!", CX, 198);
+    delay(4000);
+  }
+
+  inInitScreen = false;
+  return true;
+}
+
+// ======= TOUCH HANDLING =======
+void handleTouch() {
+  if (sleepModeActive) {
+    if (touchscreen.tirqTouched() && touchscreen.touched()) {
+      wakeUp();
+    }
+    return;
+  }
+
+  if (touchscreen.tirqTouched() && touchscreen.touched()) {
+    TS_Point p = touchscreen.getPoint();
+    int x = map(p.x, 200, 3700, 0, 240);
+    int y = map(p.y, 240, 3800, 0, 320);
+    lastActivityTime = millis();
+
+    if (!touchPressed) {
+      touchPressed = true;
+      touchStartTime = millis();
+    }
+    if (inPacerInput) {
+      handlePacerTouch(x, y);
+      touchPressed = false;
+      return;
+    }
+    if (inSettingsMenu) {
+      handleTouchMenu(x, y);
+      touchPressed = false;
+      return;
+    }
+    if (inStatsMenu) {
+      inStatsMenu = false;
+      needFullRedraw = true;
+      menuSound();
+      touchPressed = false;
+      return;
+    }
+    if (inInitScreen) {
+      touchPressed = false;
+      return;
+    }
+    if (x >= BTN1_X && x <= BTN1_X + BTN_W &&
+        y >= BTN_Y && y <= BTN_Y + BTN_H) {
+      inSettingsMenu = true;
+      drawSettingsMenu();
+      menuSound();
+      touchPressed = false;
+      return;
+    }
+    if (x >= BTN2_X && x <= BTN2_X + BTN_W &&
+        y >= BTN_Y && y <= BTN_Y + BTN_H) {
+      inStatsMenu = true;
+      drawStatsMenu();
+      menuSound();
+      touchPressed = false;
+      return;
+    }
+    if (x >= BTN3_X && x <= BTN3_X + BTN_W &&
+        y >= BTN_Y && y <= BTN_Y + BTN_H) {
+      if (pacerActive) {
+        stopPacer();
+        menuSound();
+        showToast("PACER stopped");
+      } else {
+        inPacerInput = true;
+        pacerInputStep = 0;
+        pacerInputBuffer = "";
+        menuSound();
+        drawPacerInput("ENTER TIME", "minutes");
+      }
+      touchPressed = false;
+      return;
+    }
+    if (x >= BTN4_X && x <= BTN4_X + BTN_W &&
+        y >= BTN_Y && y <= BTN_Y + BTN_H) {
+      restartDevice();
+      touchPressed = false;
+      return;
+    }
+    // Long-press removed — all actions are tap-only now
+    if (currentPage == 0) {
+      currentPage = 1;
+      needFullRedraw = true;
+      menuSound();
+    } else {
+      currentPage = 0;
+      needFullRedraw = true;
+      menuSound();
+    }
+    touchPressed = false;
+  } else {
+    touchPressed = false;
+  }
+  if (inSettingsMenu) {
+    if (millis() - settingsEnterTime > 15000) {
+      if (!settingsClosingSoundPlayed) {
+        settingsCloseSound();
+        settingsClosingSoundPlayed = true;
+      }
+      inSettingsMenu = false;
+      needFullRedraw = true;
+    }
+  }
+}
+
+// ======= SETUP =======
+void setup() {
+  Serial.begin(115200);
+  BG_COLOR = BG_LIGHT;
+  TEXT_COLOR = TEXT_LIGHT;
+  ACCENT_COLOR = ACCENT_LIGHT;
+  tft.init();
+  tft.setRotation(0);
+  tft.fillScreen(BG_COLOR);
+  tft.setTextWrap(false);
+
+  runInitialization(false);
+
+  bootTime = millis();
+  dailyResetDone = false;
+  lastActivityTime = millis();
+  needFullRedraw = true;
+}
+
+// ======= LOOP =======
+void loop() {
+  if (millis() - lastSecTimer > 1000) {
+    lastSecTimer = millis();
+
+    if (currentSpeed > 0) {
+      tripElapsedSec++;
+    }
+    totalTripElapsedSec++;
+
+    if (currentSpeed == 0 && millis() - tripPauseTimer > TRIP_PAUSE_DELAY * 2) {
+      lastValidSpeed = 0;
+    }
+  }
+
+  if (millis() - lastGPSTime > GPS_INTERVAL) {
+    updateData();
+    lastGPSTime = millis();
+  }
+  if (millis() - lastMPUTime > MPU_INTERVAL) {
+    readMPU6050();
+    lastMPUTime = millis();
+  }
+
+  updateTheme();
+  updatePacer();
+  checkSlopeRapidChange();
+  handleTouch();
+  checkDailyReset();
+  checkSleepMode();
+
+  if (showLoadReduced && millis() - loadReducedTimer > 4000) {
+    showLoadReduced = false;
+    needFullRedraw = true;
+  }
+
+  // Slope indicator update every 100ms for responsiveness
+  if (!inSettingsMenu && !inStatsMenu && !inInitScreen && !inPacerInput && !(pacerActive && pacerArrived) && millis() - lastSlopeDrawTime > SLOPE_DRAW_INTERVAL) {
+    drawSlopeArrow();
+    lastSlopeDrawTime = millis();
+  }
+
+  if (!inSettingsMenu && !inStatsMenu && !inInitScreen && !inPacerInput && millis() - lastDrawTime > DRAW_INTERVAL) {
+    if (currentPage == 0) {
+      drawUI();
+    } else {
+      drawPageStats();
+    }
+    lastDrawTime = millis();
+  }
+
+  static unsigned long lastDebug = 0;
+  if (millis() - lastDebug > 2000) {
+    lastDebug = millis();
+    float raw = gps.getGroundSpeed();
+    float pitchX = atan2(-accelX, sqrt(accelY*accelY + accelZ*accelZ)) * 180.0/PI;
+    float pitchY = atan2(-accelY, sqrt(accelX*accelX + accelZ*accelZ)) * 180.0/PI;
+    float pitchZ = atan2(accelZ, sqrt(accelX*accelX + accelY*accelY)) * 180.0/PI;
+
+    Serial.print("RAW mm/s: "); Serial.print(raw, 0);
+    Serial.print(" | KMPH: "); Serial.print(currentSpeed);
+    Serial.print(" | SAT: "); Serial.print(satellites);
+    Serial.print(" | FIX: "); Serial.print(gps.getGnssFixOk() ? "YES" : "NO");
+    Serial.print(" | AVG: "); Serial.print(tripAvgSpeed, 1);
+    Serial.print(" | LOAD: "); Serial.print(loadLevel, 1);
+    Serial.print(" | SLOPE: "); Serial.print(roadSlope, 1);
+    Serial.print(" | THEME: "); Serial.print(isDarkTheme ? "DARK" : "LIGHT");
+    Serial.print(" | timeSet: "); Serial.print(timeSet ? "YES" : "NO");
+    Serial.print(" | HOUR: "); Serial.print(currentHour);
+    Serial.print(" | ACC X/Y/Z: ");
+    Serial.print(accelX, 2); Serial.print("/");
+    Serial.print(accelY, 2); Serial.print("/");
+    Serial.print(accelZ, 2);
+    Serial.print(" | PITCHes X/Y/Z: ");
+    Serial.print(pitchX, 1); Serial.print("/");
+    Serial.print(pitchY, 1); Serial.print("/");
+    Serial.print(pitchZ, 1);
+    Serial.print(" | FWD_AXIS: "); Serial.print(forwardAxis);
+    Serial.print(" | UP_AXIS: "); Serial.print(upAxis);
+    Serial.print(" | VIB: "); Serial.print(vibrationLevel, 2);
+    Serial.print(" | LAST_VALID: "); Serial.print(lastValidSpeed, 1);
+    Serial.print(" | EEPROM_HEALTH: "); Serial.print(getEEPROMHealth(), 1);
+    Serial.print(" | PACER: "); Serial.print(pacerActive ? "ON" : "OFF");
+    if (pacerActive) {
+      Serial.print(" | TGT: "); Serial.print(pacerTargetSpeed, 1);
+      Serial.print(" | ETA: "); Serial.print(pacerETA);
+    }
+    Serial.println("%");
+  }
+  delay(5);
+}
