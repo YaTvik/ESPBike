@@ -94,7 +94,7 @@ When you turn on the device, it **doesn't just show the screen**. It first runs 
 | Mode | Runtime |
 |-------|--------------|
 | From USB charging | Unlimited |
-| From 18650 (3000 mAh) | ~15 hours |
+| From 18650 (2000 mAh) | ~15+ hours |
 
 ---
 
@@ -102,21 +102,21 @@ When you turn on the device, it **doesn't just show the screen**. It first runs 
 
 ### Main Components
 
-| Part | Purpose | Approximate Price |
-|--------|-------------|----------------|
-| **ESP32-WROOM** | Main processor | ~$6 |
-| **2.8" TFT Display** | Shows data | ~$10 |
-| **QUESCAN M10Q GPS Module** | Measures speed | ~$12 |
-| **MPU6050** | Motion sensor (slope) | ~$2.5 |
-| **DHT11** | Temperature/Humidity | ~$2 |
-| **Buzzer** | Sound alerts | ~$0.5 |
-| **Battery** | Standalone power | ~$3.5 |
-| **Total** | | **~$36.5** |
+| Component | Purpose | Approx. Price | Links / Cart |
+|-----------|---------|----------------|--------------|
+| **ESP32-WROOM** | Main processor | ~400 ₽ | https://ozon.ru/t/sX2Xuq5 |
+| **2.8" TFT Screen** | Displays data | ~800 ₽ | https://ozon.ru/t/6lilXGP |
+| **QUESCAN M10Q GPS Module** | Measures speed | ~1000 ₽ | https://ozon.ru/t/a8y8j0E |
+| **MPU6050** | Motion sensor (incline) | ~200 ₽ | https://ozon.ru/t/9ocoVb5 |
+| **DHT11** | Temperature/humidity | ~150 ₽ | https://ozon.ru/t/RhGhY2H |
+| **Buzzer** | Audio signals | ~50 ₽ | https://ozon.ru/t/bTDTdHa |
+| **Battery** | Standalone power | ~200 ₽ | https://ozon.ru/t/LC3CNfX |
+| **Battery Compartment** | Battery holder | ~80 ₽ | https://ozon.ru/t/9ocoVb5 |
+| **M2x10mm Self-tapping Screws** | Fasteners (also available at any hardware store) | ~50 ₽ | — |
+| **Total** | | **~3000 ₽** | Cart: https://www.ozon.ru/cart?share=RhGhbio |
 
-### Additional Items
-- Enclosure (can be 3D printed)
-- 18650 Battery
-- Wires and soldering iron
+### Additional
+- Case: [can be 3D printed](https://github.com/YaTvik/ESPBike/tree/main/3D_Models)
 
 ---
 
