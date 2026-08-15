@@ -102,17 +102,19 @@ When you turn on the device, it **doesn't just show the screen**. It first runs 
 
 ### Main Components
 
-| Component | Purpose | Approx. Price | Links / Cart |
-|-----------|---------|----------------|--------------|
+| Component | Purpose | Approximate Price | Links / Cart |
+|-----------|---------|-------------------|------------------|
 | **ESP32-WROOM** | Main processor | ~400 ₽ | https://ozon.ru/t/sX2Xuq5 |
-| **2.8" TFT Screen** | Displays data | ~800 ₽ | https://ozon.ru/t/6lilXGP |
-| **QUESCAN M10Q GPS Module** | Measures speed | ~1000 ₽ | https://ozon.ru/t/a8y8j0E |
-| **MPU6050** | Motion sensor (incline) | ~200 ₽ | https://ozon.ru/t/9ocoVb5 |
+| **2.8" TFT screen** | Displays data | ~800 ₽ | https://ozon.ru/t/6lilXGP |
+| **QUESCAN M10Q GPS module** | Measures speed | ~1000 ₽ | https://ozon.ru/t/a8y8j0E |
+| **MPU6050** | Motion sensor (tilt) | ~200 ₽ | https://ozon.ru/t/9ocoVb5 |
 | **DHT11** | Temperature/humidity | ~150 ₽ | https://ozon.ru/t/RhGhY2H |
 | **Buzzer** | Audio signals | ~50 ₽ | https://ozon.ru/t/bTDTdHa |
 | **Battery** | Standalone power | ~200 ₽ | https://ozon.ru/t/LC3CNfX |
-| **Battery Compartment** | Battery holder | ~80 ₽ | https://ozon.ru/t/9ocoVb5 |
-| **M2x10mm Self-tapping Screws** | Fasteners (also available at any hardware store) | ~50 ₽ | — |
+| **Battery compartment** | Battery holder | ~80 ₽ | https://ozon.ru/t/9ocoVb5 |
+| **M2x10mm self-tapping screws** | Fasteners; also available at any hardware store | ~50 ₽ | — |
+| **Case** | Printing it yourself costs ~100 ₽ | ~50 ₽ | https://github.com/YaTvik/ESPBike/tree/main/3D_Models |
+| **Battery display** | Optional, but you won't see the charge percentage without it | ~50 ₽ | https://ali.click/2iidj1l |
 | **Total** | | **~3000 ₽** | Cart: https://www.ozon.ru/cart?share=RhGhbio |
 
 ### Additional
