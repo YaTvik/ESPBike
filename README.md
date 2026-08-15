@@ -10,6 +10,7 @@
 [![Build Status](https://img.shields.io/badge/Status-Operational-brightgreen.svg)]()
 
 ---
+![Логотип проекта](images/logo.png)
 
 ## 📋 About the Project
 
