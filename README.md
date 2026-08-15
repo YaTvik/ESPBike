@@ -1,4 +1,4 @@
-# ESPBike - [English]()
+# ESPBike - [English](https://github.com/YaTvik/ESPBike/blob/main/README.md)
 🚴This is a bike computer based on the ESP32 microcontroller that displays speed and distance, assists the rider, and even suggests when to slow down!
 
 # ESPBike — Мой первый велокомпьютер
