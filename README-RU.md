@@ -1,4 +1,135 @@
-- Open **Tools → Board → Boards Manager**
+# ESPBike - [Русский]()
+🚴 This is a bike computer based on the ESP32 microcontroller that displays speed and distance, assists the rider, and even suggests when to slow down!
+
+# ESPBike — My First Bike Computer
+
+**Version: 1.0 | Open Source (MIT) | Based on ESP32**
+
+[![Platform: ESP32](https://img.shields.io/badge/Platform-ESP32-blue.svg)](https://www.espressif.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Build Status](https://img.shields.io/badge/Status-Working-brightgreen.svg)]()
+
+---
+
+## 📋 About the Project
+
+**ESPBike** is my first serious project on ESP32. I built a bike computer that displays speed, distance, helps monitor knee strain, suggests optimal pace, and even detects road slope.
+
+The project is fully functional and tested in practice. All code and wiring diagrams are open source.
+
+---
+
+## 🚴 What the Bike Computer Can Do
+
+### 📊 Key Metrics
+- **Current Speed** — large digits, visible even while riding
+- **Maximum Speed** — for the entire trip
+- **Average Speed** — accurate calculation without GPS errors
+- **Auto-Stop** — if you stop at a traffic light, the trip timer pauses
+
+### 📏 Distance
+- **Trip Distance** — how far you've ridden today
+- **Daily Distance** — resets every day
+- **Total Distance** — total mileage since assembly
+
+### ⏱️ Time
+- **Moving Time** — excluding stops
+- **Total Time** — since device power-on
+- **Clock** — displayed on the main screen (from GPS)
+
+### 🦵 Load and Health
+- **Knee Load** — my own development. Analyzes speed, distance, and road slope
+- **Color Scale from Green to Red** — if it turns red, it's time to rest
+- **Overload Alert** — at 100% load: 3-second beep, then 3-minute pause, then continuous beep until load decreases
+- **Calories** — approximate energy expenditure during the ride
+
+### ⛰️ Road Slope
+- **Slope Percentage Display** — shows steepness of ascent or descent
+- **Left Arrows** — visual indicator: up (climb), down (descent), square (flat)
+- **Auto-Calibration** — at startup, accounts for device position
+- **Rapid Slope Change Warning** — audible alert if slope changes suddenly
+
+### 🎯 PACER Mode (Pacing)
+- **Set Time and Distance** — the bike computer calculates the required speed
+- **Pace Guidance** — displays target speed
+- **Warning** — if speed deviates by more than 5 km/h, an alert sounds
+- **ETA Calculation** — shows estimated time of arrival
+- **Congratulations** — success melody plays when you reach your goal
+
+### 📳 Vibration Warning
+- **Vibration Analysis** — MPU6050 sensor monitors shaking
+- **Warning** — if vibrations exceed normal at speeds > 10 km/h, an alert sounds
+
+### 🌡️ Weather
+- **Temperature** and **Humidity** — from DHT11 sensor
+
+### 🌓 Auto-Theme
+- **Light theme during day**, **dark theme at night** (based on GPS time)
+- **Theme Lock** — if GPS is lost, the theme stays the same
+
+---
+
+## 🔧 Power-On Self-Test
+
+When you turn on the device, it **doesn't just show the screen**. It first runs an automatic check of all modules.
+
+**What is checked:**
+
+| Module | What is checked | What if error |
+|--------|-----------------|---------------|
+| **TFT** | Screen, backlight | Won't turn on — you'll see a blank screen |
+| **EEPROM** | Memory for saving settings | Will stop remembering total mileage |
+| **TOUCH** | Touch screen | Buttons won't work |
+| **MPU6050** | Motion sensor | Slope and load won't be calculated |
+| **GPS** | Satellite module | Speed and distance won't work |
+| **BUZZER** | Buzzer | No sound alerts |
+| **DHT11** | Temperature sensor | Weather won't display |
+
+**Important:** If any module fails to initialize, the device will show an error and wait for 30 seconds. You can **hold the screen** (touch and hold) — this will skip the check and boot with the non-working module. Handy if you're testing the build without all sensors.
+
+---
+
+## 🔋 Battery Life
+
+| Mode | Runtime |
+|-------|--------------|
+| From USB charging | Unlimited |
+| From 18650 (3000 mAh) | ~15 hours |
+
+---
+
+## 🛠️ What You Need for Assembly
+
+### Main Components
+
+| Part | Purpose | Approximate Price |
+|--------|-------------|----------------|
+| **ESP32-WROOM** | Main processor | ~$6 |
+| **2.8" TFT Display** | Shows data | ~$10 |
+| **QUESCAN M10Q GPS Module** | Measures speed | ~$12 |
+| **MPU6050** | Motion sensor (slope) | ~$2.5 |
+| **DHT11** | Temperature/Humidity | ~$2 |
+| **Buzzer** | Sound alerts | ~$0.5 |
+| **Battery** | Standalone power | ~$3.5 |
+| **Total** | | **~$36.5** |
+
+### Additional Items
+- Enclosure (can be 3D printed)
+- 18650 Battery
+- Wires and soldering iron
+
+---
+
+## ⚙️ How to Install the Firmware
+
+### 1. Install Arduino IDE
+Download and install [Arduino IDE](https://www.arduino.cc/en/software)
+
+### 2. Configure Arduino IDE for ESP32
+- Open **File → Preferences**
+- In **Additional Boards Manager URLs** add: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+
+- - Open **Tools → Board → Boards Manager**
 - Find and install **esp32** (by Espressif Systems)
 
 ### 3. Install Libraries
