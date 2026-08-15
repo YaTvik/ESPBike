@@ -116,7 +116,7 @@
 | **Корпус** | Самому печатать выйдет в рублей ~100 | ~50 ₽ | https://github.com/YaTvik/ESPBike/tree/main/3D_Models |
 | **Дисплей батареи** | Необязательно, но тогда вы не увидите процент заряда | ~50 ₽ | https://ali.click/2iidj1l |
 | **Переключатели** | Для включения/выключения устройства | ~40 ₽ | https://ali.click/1iodj1y |
-| **Итого** | | **~3000 ₽** | Корзина: https://www.ozon.ru/cart?share=RhGhbio |
+| **Итого** | | **~3000 ₽** | Корзина: https://www.ozon.ru/cart?share=RhGhbio без саморезов, дисплея батареи и переключателей|
 
 ### Дополнительно
 - Корпус: [можно напечатать на 3D-принтере](https://github.com/YaTvik/ESPBike/tree/main/3D_Models)
