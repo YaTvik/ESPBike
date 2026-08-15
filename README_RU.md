@@ -10,6 +10,7 @@
 [![Статус сборки](https://img.shields.io/badge/Статус-Работает-brightgreen.svg)]()
 
 ---
+![Логотип проекта](Images/Logo.jpg)
 
 ## 📋 О проекте
 
