@@ -226,7 +226,7 @@
 По вопросам коммерческого использования, лицензирования или сотрудничества:
 
 - 📧 Email: mcvictorok@gmail.com
-- 💬 GitHub Issues: [Создать обращение](https://github.com/yourusername/ESPBike/issues)
+- 💬 GitHub Issues: [Создать обращение](https://github.com/YaTvik/ESPBike/issues)
 
 ---
 
@@ -234,7 +234,7 @@
 
 Если проект вам полезен — поставьте ⭐ на GitHub. Это помогает другим находить его.
 
-[![Звезда на GitHub](https://img.shields.io/github/stars/yourusername/ESPBike.svg?style=social)](https://github.com/yourusername/ESPBike)
+[![Звезда на GitHub](https://img.shields.io/github/stars/YaTvik/ESPBike.svg?style=social)](https://github.com/YaTvik/ESPBike)
 
 ---
 
