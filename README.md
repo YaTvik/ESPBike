@@ -142,13 +142,14 @@ In Library Manager (**Sketch → Include Library → Manage Libraries**) install
 | **XPT2046_Touchscreen** | Paul Stoffregen |
 | **DHT sensor library** | Adafruit |
 
-### 4. Upload the Firmware
-- Download `ESPBike.ino` from the `firmware/` folder
-- Open it in Arduino IDE
-- Connect ESP32 to your computer
+### 4. Upload the firmware
+- Download the `ESPBike.ino` file from the `firmware/` folder
+- Open it in the Arduino IDE
+- Connect the ESP32 to your computer
 - Select **Tools → Board → ESP32 Dev Module**
 - Select the correct **port**
 - Click **Upload**
+- Press and hold the "boot" button on the board to put it into flash mode (If the board fails to enter flash mode, try forcing it by connecting the GPIO0 pin to the GND pin using a jumper wire)
 
 ### 5. Verify Operation
 After upload, ESP32 will reboot and start initialization. If all sensors are connected correctly, you'll see the main bike computer screen.
