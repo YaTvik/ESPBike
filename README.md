@@ -10,7 +10,7 @@
 [![Build Status](https://img.shields.io/badge/Status-Operational-brightgreen.svg)]()
 
 ---
-![Логотип проекта]([images/logo.png](https://github.com/YaTvik/ESPBike/blob/main/Images/Logo.jpg))
+![Логотип проекта](Images/Logo.jpg)
 
 ## 📋 About the Project
 
