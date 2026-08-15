@@ -114,9 +114,10 @@ When you turn on the device, it **doesn't just show the screen**. It first runs 
 | **Battery** | Standalone power | ~200 ₽ | https://ozon.ru/t/LC3CNfX |
 | **Battery compartment** | Battery holder | ~80 ₽ | https://ozon.ru/t/9ocoVb5 |
 | **M2x10mm self-tapping screws** | Fasteners; also available at any hardware store | ~50 ₽ | — |
-| **Case** | Printing it yourself costs ~100 ₽ | ~50 ₽ | https://github.com/YaTvik/ESPBike/tree/main/3D_Models |
+| **Enclosure** | Printing it yourself costs ~100 rubles | ~50 ₽ | https://github.com/YaTvik/ESPBike/tree/main/3D_Models |
 | **Battery display** | Optional, but you won't see the charge percentage without it | ~50 ₽ | https://ali.click/2iidj1l |
-| **Total** | | **~3000 ₽** | Cart: https://www.ozon.ru/cart?share=RhGhbio |
+| **Switches** | To turn the device on/off | ~40 ₽ | https://ali.click/1iodj1y |
+| **Total** | | **~3000 ₽** | Cart: https://www.ozon.ru/cart?share=RhGhbio (excluding self-tapping screws, batteries, and switches) |
 
 ### Additional
 - Case: [can be 3D printed](https://github.com/YaTvik/ESPBike/tree/main/3D_Models)
