@@ -1,19 +1,19 @@
 # 🚴⚡ ESPBike - [Русский](https://github.com/YaTvik/ESPBike/blob/main/README_RU.md)
 🚴 This is a bike computer based on the ESP32 microcontroller that displays speed and distance, assists the rider, and even suggests when to slow down!
 
-# ESPBike — Bike Computer
+# ESPBike — Bicycle Computer.
 
-**Version: 1.0 | Open Source (MIT) | Based on ESP32**
+**Version: 1.0 | Open Source (MIT) | Powered by ESP32**
 
 [![Platform: ESP32](https://img.shields.io/badge/Platform-ESP32-blue.svg)](https://www.espressif.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://img.shields.io/badge/Status-Working-brightgreen.svg)]()
+[![Build Status](https://img.shields.io/badge/Status-Operational-brightgreen.svg)]()
 
 ---
 
 ## 📋 About the Project
 
-**ESPBike** is my first serious project on ESP32. I built a bike computer that displays speed, distance, helps monitor knee strain, suggests optimal pace, and even detects road slope.
+**ESPBike** is my first public project based on the ESP32 microcontroller. I built a bicycle computer that displays speed and distance, helps monitor knee strain, suggests the optimal cadence, and even detects the road gradient.
 
 The project is fully functional and tested in practice. All code and wiring diagrams are open source.
 
