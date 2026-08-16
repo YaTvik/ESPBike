@@ -141,7 +141,7 @@
 **Самый простой способ — скачать готовый архив:**
 
 1. Скачайте архив со всеми библиотеками:  
-   👉 [ESPBike_Libs.zip](libs/ESPBike_Libs.zip)
+   👉 [ESPBike_Libs.zip](libs/ESPBike_library.zip)
 
 2. Распакуйте содержимое в папку:  
    `Documents/Arduino/libraries/`
