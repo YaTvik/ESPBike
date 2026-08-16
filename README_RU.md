@@ -1,13 +1,13 @@
 # 🚴⚡ ESPBike - [English](https://github.com/YaTvik/ESPBike/blob/main/README.md)
-🚴This is a bike computer based on the ESP32 microcontroller that displays speed and distance, assists the rider, and even suggests when to slow down!
+🚴 This is a bike computer based on the ESP32 microcontroller that displays speed and distance, assists the rider, and even suggests when to slow down!
 
 # ESPBike — Велокомпьютер для велосипеда.
 
 **Версия: 1.0 | Open Source (MIT) | На базе ESP32**
 
-[![Платформа: ESP32](https://img.shields.io/badge/Платформа-ESP32-blue.svg)](https://www.espressif.com/)
-[![Лицензия: MIT](https://img.shields.io/badge/Лицензия-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Статус сборки](https://img.shields.io/badge/Статус-Работает-brightgreen.svg)]()
+[![Platform: ESP32](https://img.shields.io/badge/Платформа-ESP32-blue.svg)](https://www.espressif.com/)
+[![License: MIT](https://img.shields.io/badge/Лицензия-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Build Status](https://img.shields.io/badge/Статус-Работает-brightgreen.svg)]()
 
 ---
 ![Логотип проекта](Images/Logo.jpg)
@@ -137,7 +137,18 @@
 - Найдите и установите **esp32** (автор Espressif Systems)
 
 ### 3. Установите библиотеки
-В менеджере библиотек (**Скетч → Подключить библиотеку → Управлять библиотеками**) установите:
+
+**Самый простой способ — скачать готовый архив:**
+
+1. Скачайте архив со всеми библиотеками:  
+   👉 [ESPBike_Libs.zip](libs/ESPBike_Libs.zip)
+
+2. Распакуйте содержимое в папку:  
+   `Documents/Arduino/libraries/`
+
+3. Перезапустите Arduino IDE
+
+**Или установите вручную через менеджер библиотек:**
 
 | Библиотека | Автор |
 |------------|-------|
@@ -146,6 +157,25 @@
 | **XPT2046_Touchscreen** | Paul Stoffregen |
 | **DHT sensor library** | Adafruit |
 
+---
+
+### 🔧 Настройка TFT_eSPI
+
+**Важно!** После установки библиотеки TFT_eSPI нужно заменить один файл.
+
+**Если вы скачали готовый архив** — файл уже заменён, можете пропустить этот шаг.
+
+**Если вы устанавливали библиотеки вручную:**
+
+1. Найдите папку: `Documents/Arduino/libraries/TFT_eSPI/`
+2. Удалите файл `User_Setup.h`
+3. Скопируйте сюда файл `User_Setup.h` из папки:  
+   👉 [Settings TFT_eSPI/User_Setup.h](Settings%20TFT_eSPI/User_Setup.h)
+
+📖 **Подробная инструкция:** [Открыть](Settings%20TFT_eSPI/Instructions.txt)
+
+---
+
 ### 4. Загрузите прошивку
 - Скачайте файл `ESPBike.ino` из папки `firmware/`
 - Откройте его в Arduino IDE
@@ -153,7 +183,7 @@
 - Выберите **Инструменты → Плата → ESP32 Dev Module**
 - Выберите правильный **порт**
 - Нажмите **Загрузить**
-- Зажмите на плате кнопку "boot" для перехода платы в режим прошивки (Если плата вдруг не переходит в режим прошвики, то попробуйте перевести в режим прошивки принудительно, соединив пин GPIO0 на плате с пином GND с помощью обычной перемычки (куска провода))
+- Зажмите на плате кнопку "boot" для перехода платы в режим прошивки (Если плата вдруг не переходит в режим прошивки, то попробуйте перевести в режим прошивки принудительно, соединив пин GPIO0 на плате с пином GND с помощью обычной перемычки (куска провода))
 
 ### 5. Проверьте работу
 После загрузки ESP32 перезагрузится и начнёт инициализацию. Если все датчики подключены правильно, вы увидите главный экран велокомпьютера.
