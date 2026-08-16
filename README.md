@@ -1,20 +1,20 @@
-# 🚴⚡ ESPBike - [Русский](https://github.com/YaTvik/ESPBike/blob/main/README_RU.md)
+# 🚴⚡ ESPBike - [Русский](https://github.com/YaTvik/ESPBike/blob/main/README.ru.md)
 🚴 This is a bike computer based on the ESP32 microcontroller that displays speed and distance, assists the rider, and even suggests when to slow down!
 
 # ESPBike — Bicycle Computer.
 
-**Version: 1.0 | Open Source (MIT) | Powered by ESP32**
+**Version: 1.0 | Open Source (MIT) | Based on ESP32**
 
 [![Platform: ESP32](https://img.shields.io/badge/Platform-ESP32-blue.svg)](https://www.espressif.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://img.shields.io/badge/Status-Operational-brightgreen.svg)]()
+[![Build Status](https://img.shields.io/badge/Status-Working-brightgreen.svg)]()
 
 ---
-![Логотип проекта](Images/Logo.jpg)
+![Project Logo](Images/Logo.jpg)
 
 ## 📋 About the Project
 
-**ESPBike** is my first public project based on the ESP32 microcontroller. I built a bicycle computer that displays speed and distance, helps monitor knee strain, suggests the optimal cadence, and even detects the road gradient.
+**ESPBike** is my first public project based on the ESP32 microcontroller. I built a bike computer that displays speed, distance, helps monitor knee strain, suggests optimal pace, and even detects road slope.
 
 The project is fully functional and tested in practice. All code and wiring diagrams are open source.
 
@@ -103,24 +103,24 @@ When you turn on the device, it **doesn't just show the screen**. It first runs 
 
 ### Main Components
 
-| Component | Purpose | Approximate Price | Links / Cart |
-|-----------|---------|-------------------|------------------|
-| **ESP32-WROOM** | Main processor | ~400 ₽ | https://ozon.ru/t/sX2Xuq5 |
-| **2.8" TFT screen** | Displays data | ~800 ₽ | https://ozon.ru/t/6lilXGP |
-| **QUESCAN M10Q GPS module** | Measures speed | ~1000 ₽ | https://ozon.ru/t/a8y8j0E |
-| **MPU6050** | Motion sensor (tilt) | ~200 ₽ | https://ozon.ru/t/9ocoVb5 |
-| **DHT11** | Temperature/humidity | ~150 ₽ | https://ozon.ru/t/RhGhY2H |
-| **Buzzer** | Audio signals | ~50 ₽ | https://ozon.ru/t/bTDTdHa |
-| **Battery** | Standalone power | ~200 ₽ | https://ozon.ru/t/LC3CNfX |
-| **Battery compartment** | Battery holder | ~80 ₽ | https://ozon.ru/t/9ocoVb5 |
-| **M2x10mm self-tapping screws** | Fasteners; also available at any hardware store | ~50 ₽ | — |
-| **Enclosure** | Printing it yourself costs ~100 rubles | ~50 ₽ | https://github.com/YaTvik/ESPBike/tree/main/3D_Models |
-| **Battery display** | Optional, but you won't see the charge percentage without it | ~50 ₽ | https://ali.click/2iidj1l |
-| **Switches** | To turn the device on/off | ~40 ₽ | https://ali.click/1iodj1y |
-| **Total** | | **~3000 ₽** | Cart: https://www.ozon.ru/cart?share=RhGhbio (excluding self-tapping screws, batteries, and switches) |
+| Part | Purpose | Approximate Price | Links / Cart |
+|--------|-------------|----------------|------------------|
+| **ESP32-WROOM** | Main processor | ~$5 | https://ozon.ru/t/sX2Xuq5 |
+| **2.8" TFT Display** | Shows data | ~$10 | https://ozon.ru/t/6lilXGP |
+| **QUESCAN M10Q GPS Module** | Measures speed | ~$12 | https://ozon.ru/t/a8y8j0E |
+| **MPU6050** | Motion sensor (slope) | ~$2.5 | https://ozon.ru/t/9ocoVb5 |
+| **DHT11** | Temperature/Humidity | ~$2 | https://ozon.ru/t/RhGhY2H |
+| **Buzzer** | Sound alerts | ~$0.5 | https://ozon.ru/t/bTDTdHa |
+| **Battery** | Standalone power | ~$2.5 | https://ozon.ru/t/LC3CNfX |
+| **Battery Holder** | Battery compartment | ~$1 | https://ozon.ru/t/9ocoVb5 |
+| **Screws M2x10mm** | Fasteners, also available at any hardware store | ~$0.5 | — |
+| **Enclosure** | 3D printing costs about ~$1 | ~$0.5 | https://github.com/YaTvik/ESPBike/tree/main/3D_Models |
+| **Battery Display** | Optional, but then you won't see charge percentage | ~$0.5 | https://ali.click/2iidj1l |
+| **Switches** | For power on/off | ~$0.5 | https://ali.click/1iodj1y |
+| **Total** | | **~$37** | Cart: https://www.ozon.ru/cart?share=RhGhbio without screws, battery display and switches|
 
 ### Additional
-- Case: [can be 3D printed](https://github.com/YaTvik/ESPBike/tree/main/3D_Models)
+- Enclosure: [can be 3D printed](https://github.com/YaTvik/ESPBike/tree/main/3D_Models)
 
 ---
 
@@ -133,11 +133,22 @@ Download and install [Arduino IDE](https://www.arduino.cc/en/software)
 - Open **File → Preferences**
 - In **Additional Boards Manager URLs** add: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 
-- - Open **Tools → Board → Boards Manager**
+- Open **Tools → Board → Boards Manager**
 - Find and install **esp32** (by Espressif Systems)
 
 ### 3. Install Libraries
-In Library Manager (**Sketch → Include Library → Manage Libraries**) install:
+
+**Easiest way — download the ready archive:**
+
+1. Download the archive with all libraries:  
+   👉 [ESPBike_Libs.zip](libs/ESPBike_library.zip)
+
+2. Extract the contents to:  
+   `Documents/Arduino/libraries/`
+
+3. Restart Arduino IDE
+
+**Or install manually via Library Manager:**
 
 | Library | Author |
 |------------|-------|
@@ -146,14 +157,33 @@ In Library Manager (**Sketch → Include Library → Manage Libraries**) install
 | **XPT2046_Touchscreen** | Paul Stoffregen |
 | **DHT sensor library** | Adafruit |
 
-### 4. Upload the firmware
+---
+
+### 🔧 TFT_eSPI Configuration
+
+**Important!** After installing the TFT_eSPI library, you need to replace one file.
+
+**If you downloaded the ready archive** — the file is already replaced, you can skip this step.
+
+**If you installed libraries manually:**
+
+1. Find the folder: `Documents/Arduino/libraries/TFT_eSPI/`
+2. Delete the file `User_Setup.h`
+3. Copy the file `User_Setup.h` from here:  
+   👉 [Settings TFT_eSPI/User_Setup.h](Settings%20TFT_eSPI/User_Setup.h)
+
+📖 **Detailed instructions:** [Open](Settings TFT_eSPI/Instructions)
+
+---
+
+### 4. Upload the Firmware
 - Download the `ESPBike.ino` file from the `firmware/` folder
-- Open it in the Arduino IDE
-- Connect the ESP32 to your computer
+- Open it in Arduino IDE
+- Connect ESP32 to your computer
 - Select **Tools → Board → ESP32 Dev Module**
 - Select the correct **port**
 - Click **Upload**
-- Press and hold the "boot" button on the board to put it into flash mode (If the board fails to enter flash mode, try forcing it by connecting the GPIO0 pin to the GND pin using a jumper wire)
+- Press and hold the "boot" button on the board to enter flashing mode (If the board doesn't enter flashing mode, try forcing it by connecting GPIO0 pin to GND with a jumper wire)
 
 ### 5. Verify Operation
 After upload, ESP32 will reboot and start initialization. If all sensors are connected correctly, you'll see the main bike computer screen.
