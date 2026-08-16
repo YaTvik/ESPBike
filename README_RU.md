@@ -172,7 +172,7 @@
 3. Скопируйте сюда файл `User_Setup.h` из папки:  
    👉 [Settings TFT_eSPI/User_Setup.h](Settings%20TFT_eSPI/User_Setup.h)
 
-📖 **Подробная инструкция:** [Открыть](Settings%20TFT_eSPI/Instructions.txt)
+📖 **Подробная инструкция:** [Открыть](Settings TFT_eSPI/Instructions)
 
 ---
 
