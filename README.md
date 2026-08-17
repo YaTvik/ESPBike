@@ -40,10 +40,9 @@ The project is fully functional and tested in practice. All code and wiring diag
 
 ### 🦵 Load and Health
 - **Knee load** — my own development. It analyzes speed, distance traveled, and road gradient.
--
 - | ⚠️ WARNING! |
   |--------|
-  The estimated load is an experimental indicator of the intensity of the trip, calculated based on speed, distance, and gradient. It is not a medical measurement.
+  **The estimated load is an experimental indicator of the intensity of the trip, calculated based on speed, distance, and gradient. It is not a medical measurement.**
 
 
 - **Color Scale from Green to Red** — if it turns red, it's time to rest
