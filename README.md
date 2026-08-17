@@ -125,6 +125,112 @@ When you turn on the device, it **doesn't just show the screen**. It first runs 
 
 ---
 
+# 🔌 Module Wiring for ESP32
+
+---
+
+## TFT Display (2.8" ILI9341)
+
+| TFT | ESP32 Pin |
+|-----|-----------|
+| VCC | 3.3V |
+| GND | GND |
+| CS | GPIO5 |
+| DC | GPIO2 |
+| RST | GPIO4 |
+| MOSI | GPIO23 |
+| SCLK | GPIO18 |
+| LED | 3.3V |
+
+---
+
+## Touch Screen (XPT2046)
+
+| Touch | ESP32 Pin |
+|-------|-----------|
+| VCC | 3.3V |
+| GND | GND |
+| T_CS | GPIO33 |
+| T_MOSI | GPIO32 |
+| T_MISO | GPIO34 |
+| T_CLK | GPIO25 |
+| T_IRQ | GPIO35 |
+
+---
+
+## GPS (QUESCAN M10Q)
+
+| GPS | ESP32 Pin |
+|-----|-----------|
+| VCC | 3.3V |
+| GND | GND |
+| TX | GPIO16 |
+| RX | GPIO17 |
+
+---
+
+## MPU6050
+
+| MPU6050 | ESP32 Pin |
+|---------|-----------|
+| VCC | 3.3V |
+| GND | GND |
+| SDA | GPIO21 |
+| SCL | GPIO22 |
+
+---
+
+## DHT11
+
+| DHT11 | ESP32 Pin |
+|-------|-----------|
+| VCC | 3.3V |
+| GND | GND |
+| DATA | GPIO13 |
+
+---
+
+## Buzzer
+
+| Buzzer | ESP32 Pin |
+|--------|-----------|
+| SIG | GPIO26 |
+| GND | GND |
+
+---
+
+## TP4056
+
+| TP4056 | Connect to |
+|--------|------------|
+| IN+ | USB 5V |
+| IN- | USB GND |
+| BAT+ | 18650 + |
+| BAT- | 18650 - |
+| OUT+ | Switch (COM) |
+| OUT- | GND |
+
+---
+
+## 3-Pin Switch
+
+| Switch | Connect to |
+|--------|------------|
+| 1 (COM) | TP4056 OUT+ |
+| 2 (NO) | ESP32 VIN |
+| 3 (NC) | Not connected |
+
+---
+
+## Battery Indicator
+
+| Indicator | Connect to |
+|-----------|------------|
+| B+ | TP4056 BAT+ |
+| B- | TP4056 BAT- |
+
+---
+
 ## ⚙️ How to Install the Firmware
 
 ### 1. Install Arduino IDE
@@ -163,7 +269,6 @@ Download and install [Arduino IDE](https://www.arduino.cc/en/software)
 ### 🔧 TFT_eSPI Configuration
 
 **Important!** After installing the TFT_eSPI library, you need to replace one file.
-
 **If you downloaded the ready archive** — the file is already replaced, you can skip this step.
 
 **If you installed libraries manually:**
