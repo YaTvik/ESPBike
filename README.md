@@ -40,8 +40,10 @@ The project is fully functional and tested in practice. All code and wiring diag
 
 ### 🦵 Load and Health
 - **Knee load** — my own development. It analyzes speed, distance traveled, and road gradient.
-**⚠️ Warning! The estimated load is an experimental indicator of the intensity of the trip, calculated based on speed, distance, and gradient.
-It is not a medical measurement.**
+**| ⚠️ WARNING! |
+  |--------|
+|⚠️ Warning! The estimated load is an experimental indicator of the intensity of the trip, calculated based on speed, distance, and gradient.
+It is not a medical measurement.**|
 
 - **Color Scale from Green to Red** — if it turns red, it's time to rest
 - **Overload Alert** — at 100% load: 3-second beep, then 3-minute pause, then continuous beep until load decreases
