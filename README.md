@@ -103,21 +103,22 @@ When you turn on the device, it **doesn't just show the screen**. It first runs 
 
 ### Main Components
 
-| Part | Purpose | Approximate Price | Links / Cart |
+| Part | Purpose | Approximate price | Links / Cart |
 |--------|-------------|----------------|------------------|
-| **ESP32-WROOM** | Main processor | ~$5 | https://ozon.ru/t/sX2Xuq5 |
-| **2.8" TFT Display** | Shows data | ~$10 | https://ozon.ru/t/6lilXGP |
-| **QUESCAN M10Q GPS Module** | Measures speed | ~$12 | https://ozon.ru/t/a8y8j0E |
-| **MPU6050** | Motion sensor (slope) | ~$2.5 | https://ozon.ru/t/9ocoVb5 |
-| **DHT11** | Temperature/Humidity | ~$2 | https://ozon.ru/t/RhGhY2H |
-| **Buzzer** | Sound alerts | ~$0.5 | https://ozon.ru/t/bTDTdHa |
-| **Battery** | Standalone power | ~$2.5 | https://ozon.ru/t/LC3CNfX |
-| **Battery Holder** | Battery compartment | ~$1 | https://ozon.ru/t/9ocoVb5 |
-| **Screws M2x10mm** | Fasteners, also available at any hardware store | ~$0.5 | — |
-| **Enclosure** | 3D printing costs about ~$1 | ~$0.5 | https://github.com/YaTvik/ESPBike/tree/main/3D_Models |
-| **Battery Display** | Optional, but then you won't see charge percentage | ~$0.5 | https://ali.click/2iidj1l |
-| **Switches** | For power on/off | ~$0.5 | https://ali.click/1iodj1y |
-| **Total** | | **~$37** | Cart: https://www.ozon.ru/cart?share=RhGhbio without screws, battery display and switches|
+| **ESP32-WROOM** | Main processor | ~400 ₽ | https://ozon.ru/t/sX2Xuq5 |
+| **2.8" TFT screen** | Displays data | ~800 ₽ | https://ozon.ru/t/6lilXGP |
+| **QUESCAN M10Q GPS module** | Measures speed | ~1000 ₽ | https://ozon.ru/t/a8y8j0E |
+| **MPU6050** | Motion sensor (tilt) | ~200 ₽ | https://ozon.ru/t/9ocoVb5 |
+| **DHT11** | Temperature/humidity | ~150 ₽ | https://ozon.ru/t/RhGhY2H |
+| **Buzzer** | Audible signals | ~50 ₽ | https://ozon.ru/t/bTDTdHa |
+| **Battery** | Autonomous power supply | ~200 ₽ | https://ozon.ru/t/LC3CNfX |
+| **Battery compartment** | Battery holder | ~80 ₽ | https://ozon.ru/t/9ocoVb5 |
+| **M2x10mm self‑tapping screws** | Fasteners, can also be bought at any hardware store | ~50 ₽ | — |
+| **Housing** | Printing it yourself will cost about 100 rubles | ~50 ₽ | https://github.com/YaTvik/ESPBike/tree/main/3D_Models |
+| **Battery display** | Optional, but then you won’t see the charge percentage | ~50 ₽ | https://ali.click/2iidj1l |
+| **Switches** | For turning the device on/off | ~40 ₽ WHOLESALE | https://ali.click/1iodj1y |
+| **tp4056** | Charge board | ~100 ₽ WHOLESALE | https://ali.click/694ij1h |
+| **Total** | | **~3000 ₽** | Cart: https://www.ozon.ru/cart?share=RhGhbio without self‑tapping screws, battery display, and switches.
 
 ### Additional
 - Enclosure: [can be 3D printed](https://github.com/YaTvik/ESPBike/tree/main/3D_Models)
