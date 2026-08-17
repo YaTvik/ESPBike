@@ -340,6 +340,13 @@ After upload, ESP32 will reboot and start initialization. If all sensors are con
 
 ---
 
+
+## 🏁 Финальный результат
+
+![Результат](Images/21929.jpg)
+
+---
+
 ## 🤝 How to Support the Project
 
 This is my first project, so any help is valuable:
