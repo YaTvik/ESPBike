@@ -187,13 +187,21 @@ When you turn on the device, it **doesn't just show the screen**. It first runs 
 
 ## DHT11
 
-| DHT11 | ESP32 Pin |
+| DHT11 | ESP32 pin |
 |-------|-----------|
 | VCC | 3.3V |
 | GND | GND |
 | DATA | GPIO13 |
 
+or
 
+| DHT22 | ESP32 Pin |
+|-------|-----------|
+| VCC | 3.3V |
+| GND | GND |
+| DATA | GPIO13 |
+
+**❗For more accurate readings, add a 10 kΩ resistor between DATA and VCC.**
 
 ---
 
