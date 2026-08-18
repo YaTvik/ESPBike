@@ -193,6 +193,8 @@ When you turn on the device, it **doesn't just show the screen**. It first runs 
 | GND | GND |
 | DATA | GPIO13 |
 
+
+
 ---
 
 ## Buzzer
@@ -286,15 +288,15 @@ Download and install [Arduino IDE](https://www.arduino.cc/en/software)
 📖 **Detailed instructions:** [Open](Settings TFT_eSPI/Instructions)
 
 ---
-
-### 4. Upload the Firmware
+### 4. Upload the firmware
 - Download the `ESPBike.ino` file from the `firmware/` folder
-- Open it in Arduino IDE
-- Connect ESP32 to your computer
+- Open it in the Arduino IDE
+- IF YOU HAVE A MORE ACCURATE DHT22 module installed instead of DHT11, you need to replace #define DHTTYPE DHT11 with #define DHTTYPE DHT22 at the beginning of the code.
+- Connect the ESP32 to the computer
 - Select **Tools → Board → ESP32 Dev Module**
 - Select the correct **port**
-- Click **Upload**
-- Press and hold the "boot" button on the board to enter flashing mode (If the board doesn't enter flashing mode, try forcing it by connecting GPIO0 pin to GND with a jumper wire)
+- Click **Download**
+- Press and hold the “boot” button on the board to switch the board to firmware mode. If the board does not switch to firmware mode, try forcing it into firmware mode by connecting the GPIO0 pin on the board to the GND pin using a regular jumper (a piece of wire).
 
 ### 5. Verify Operation
 After upload, ESP32 will reboot and start initialization. If all sensors are connected correctly, you'll see the main bike computer screen.
