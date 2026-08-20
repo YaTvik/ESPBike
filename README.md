@@ -218,8 +218,6 @@ or
 
 | TP4056 | Connect to |
 |--------|------------|
-| IN+ | USB 5V |
-| IN- | USB GND |
 | BAT+ | 18650 + |
 | BAT- | 18650 - |
 | OUT+ | Switch (COM) |
